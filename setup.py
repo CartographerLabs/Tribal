@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="Tribal",
-    version="0.4",
+    version="0.5",
     packages=find_packages(),
     # Optional metadata
     author="James Stevenson",
