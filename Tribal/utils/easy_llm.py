@@ -178,7 +178,7 @@ class EasyLLM:
         """
         self.dialogue = []
 
-    def ask_question(self, question: str, reset_dialogue: bool = False) -> str:
+    def ask_question(self, question: str, reset_dialogue: bool = True) -> str:
         """
         Generates a response for the given question using the loaded model.
 
