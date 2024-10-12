@@ -1,6 +1,6 @@
 from abc import ABC
-from objects.post import PostObject
-from data_set_managers.dataset_window_values import DatasetWindowValues
+from Tribal.objects.post import PostObject
+from Tribal.data_set_managers.dataset_window_values import DatasetWindowValues
 import numpy as np
 
 
