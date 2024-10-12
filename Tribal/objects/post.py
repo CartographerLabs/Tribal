@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from tkinter import NO
 
 from llama_index_client import Llm
-from utils.feature_extractor import FeatureExtractor
-from utils.config_manager import ConfigManager
+from Tribal.utils.feature_extractor import FeatureExtractor
+from Tribal.utils.config_manager import ConfigManager
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from detoxify import Detoxify
 import json
