@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 import json 
 
-from objects.user import UserObject
+from Tribal.objects.user import UserObject
 from utils.window_feature_extractor import WindowFeatureExtractor
 class ConversationObject():
 
