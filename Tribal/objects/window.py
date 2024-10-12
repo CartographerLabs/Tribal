@@ -1,8 +1,8 @@
 from sympy import use
-from objects.user import UserObject
-from utils.random_word import generate_random_name
-from utils.window_feature_extractor import WindowFeatureExtractor
-from objects.conversation import ConversationObject
+from Tribal.objects.user import UserObject
+from Tribal.utils.random_word import generate_random_name
+from Tribal.utils.window_feature_extractor import WindowFeatureExtractor
+from Tribal.objects.conversation import ConversationObject
 import json 
 
 class WindowObject:
