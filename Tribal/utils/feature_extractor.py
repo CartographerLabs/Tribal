@@ -20,7 +20,7 @@ import json
 import csv 
 import numpy as np
 from nltk.tokenize import word_tokenize
-from utils.easy_llm import EasyLLM
+from Tribal.utils.easy_llm import EasyLLM
 
 class FeatureExtractor():
 
