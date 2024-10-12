@@ -2,7 +2,7 @@ from turtle import pos
 
 from llama_index_client import Llm
 from sympy import use
-from objects import user
+from Tribal.objects import user
 import networkx as nx
 import re 
 from datetime import datetime
