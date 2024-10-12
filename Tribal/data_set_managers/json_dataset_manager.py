@@ -1,5 +1,5 @@
-from data_set_managers.abstract_dataset_manager import AbstractDatasetManager
-from data_set_managers.dataset_window_values import DatasetWindowValues
+from Tribal.data_set_managers.abstract_dataset_manager import AbstractDatasetManager
+from Tribal.data_set_managers.dataset_window_values import DatasetWindowValues
 import json
 from datetime import datetime
 
