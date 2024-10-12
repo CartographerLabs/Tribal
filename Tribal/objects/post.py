@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from tkinter import NO
 
 from Tribal.utils.feature_extractor import FeatureExtractor
 from Tribal.utils.config_manager import ConfigManager
