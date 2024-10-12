@@ -1,6 +1,6 @@
-from data_set_managers.dataset_window_values import DatasetWindowValues
-from objects.post import PostObject
-from objects.window import WindowObject
+from Tribal.data_set_managers.dataset_window_values import DatasetWindowValues
+from Tribal.objects.post import PostObject
+from Tribal.objects.window import WindowObject
 
 class TimelineObject():
     _posts = []
