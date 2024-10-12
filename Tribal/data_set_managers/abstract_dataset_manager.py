@@ -1,6 +1,6 @@
 # an abstract class for extracting data that is extended for data types (e.g. databases, json, etc)
 from abc import ABC, abstractmethod
-from utils.random_word import generate_random_name
+from Tribal.utils.random_word import generate_random_name
 
 class AbstractDatasetManager(ABC):
     @abstractmethod
