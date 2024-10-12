@@ -3,7 +3,7 @@ from sentence_transformers import SentenceTransformer
 import spacy
 import pytextrank
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from utils.text_cluster import TextCluster
+from Tribal.utils.text_cluster import TextCluster
 from detoxify import Detoxify
 from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
