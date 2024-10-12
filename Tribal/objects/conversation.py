@@ -8,7 +8,7 @@ from datetime import datetime
 import json 
 
 from Tribal.objects.user import UserObject
-from utils.window_feature_extractor import WindowFeatureExtractor
+from Tribal.utils.window_feature_extractor import WindowFeatureExtractor
 class ConversationObject():
 
     _posts = None
