@@ -132,6 +132,7 @@ Posts:
         structured_prompt = self._feature_extractor.llm.generate_json_prompt(schema_model, prompt)
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm.reset_dialogue()
+        print(response)
         return response
 
     
@@ -153,6 +154,7 @@ Posts:
         schema_model = self._feature_extractor.llm.generate_pydantic_model_from_json_schema("Default", schema)
         structured_prompt = self._feature_extractor.llm.generate_json_prompt(schema_model, prompt)
         response = self._feature_extractor.llm.ask_question(structured_prompt)
+        print(response)
         self._feature_extractor.llm.reset_dialogue()
         return response
 
