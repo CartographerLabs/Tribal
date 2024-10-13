@@ -18,7 +18,7 @@ from collections import Counter
 from nltk import pos_tag
 from nrclex import NRCLex
 from sklearn.feature_extraction.text import TfidfVectorizer
-
+from Tribal.utils.easy_llm import EasyLLM
 # Load pre-trained models as mentioned in the paper
 # Use domain-specific word embedding with BiLSTM for one approach and BERT for the other approach
 model_name = "bert-base-uncased"  # You may replace this with your own fine-tuned BERT model
@@ -63,7 +63,8 @@ class BiLSTMClassifier(nn.Module):
         self.hidden_dim = hidden_dim
         self.lstm = nn.LSTM(embedding_dim, hidden_dim, bidirectional=True, batch_first=True)
         self.fc = nn.Linear(hidden_dim * 2, num_labels)
-
+        self.llm = EasyLLM()
+        
     def forward(self, x, lengths):
         # Pack the padded sequence
         packed_input = torch.nn.utils.rnn.pack_padded_sequence(x, lengths.cpu(), batch_first=True, enforce_sorted=False)
@@ -101,7 +102,7 @@ class FeatureExtractor:
     def __init__(self, list_of_text_for_topic_creation, list_of_baseline_posts_for_vec_model):
         self._build_idf_model(list_of_text_for_topic_creation)
         self._build_word_2_vec_model(list_of_baseline_posts_for_vec_model)
-
+        self.llm = 
         # Load spaCy model with necessary components
         self.nlp = spacy.load("en_core_web_sm")
         self.nlp.add_pipe("textrank")  # Ensure PyTextRank is added to the pipeline
