@@ -48,7 +48,7 @@ class ExtremistDataset(Dataset):
             if not embeddings:
                 embeddings = [np.zeros(self.word2vec_model.vector_size)]
             embeddings = torch.tensor(embeddings, dtype=torch.float)
-            return embeddings, torch.tensor(label, dtype=torch.long)
+            return embeddings, label  # Return embeddings and label
         else:
             inputs = self.tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
             inputs = {key: val.squeeze(0) for key, val in inputs.items()}
@@ -64,20 +64,32 @@ class BiLSTMClassifier(nn.Module):
         self.lstm = nn.LSTM(embedding_dim, hidden_dim, bidirectional=True, batch_first=True)
         self.fc = nn.Linear(hidden_dim * 2, num_labels)
 
-    def forward(self, x):
-        lstm_out, _ = self.lstm(x)
-        lstm_out = lstm_out[:, -1, :]  # Get the output from the last time step
-        logits = self.fc(lstm_out)
+    def forward(self, x, lengths):
+        # Pack the padded sequence
+        packed_input = torch.nn.utils.rnn.pack_padded_sequence(x, lengths.cpu(), batch_first=True, enforce_sorted=False)
+        packed_output, (h_n, c_n) = self.lstm(packed_input)
+        # Concatenate the final forward and backward hidden states
+        h_n = h_n.permute(1, 0, 2)
+        h_n = h_n.contiguous().view(h_n.size(0), -1)  # [batch_size, hidden_dim * num_directions]
+        logits = self.fc(h_n)
         return logits
 
 # Instantiate BiLSTM model
-embedding_dim = 300  # Use the same dimension as Word2Vec embedding
+embedding_dim = 100  # Use the same dimension as Word2Vec embedding (updated to match VECTOR_SIZE)
 hidden_dim = 128
 bilstm_model = BiLSTMClassifier(embedding_dim, hidden_dim, num_labels).to(device)
 
 # Load the tokenizer and prepare BERT model
 tokenizer = BertTokenizer.from_pretrained(model_name)
 bert_model = BertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels).to(device)
+
+# Custom collate function for DataLoader
+def collate_fn(batch):
+    embeddings = [item[0] for item in batch]
+    labels = torch.tensor([item[1] for item in batch], dtype=torch.long)
+    lengths = torch.tensor([len(x) for x in embeddings], dtype=torch.long)
+    embeddings_padded = torch.nn.utils.rnn.pad_sequence(embeddings, batch_first=True)
+    return embeddings_padded, labels, lengths
 
 # Integration into FeatureExtractor class
 class FeatureExtractor:
@@ -112,7 +124,9 @@ class FeatureExtractor:
             word2vec_model=self.word2vec_model,
             use_word2vec=True
         )
-        self.train_loader_bilstm = DataLoader(self.dataset_train_bilstm, batch_size=32, shuffle=True)
+        self.train_loader_bilstm = DataLoader(
+            self.dataset_train_bilstm, batch_size=32, shuffle=True, collate_fn=collate_fn
+        )
 
         # Train BiLSTM model during initialization
         self.train_bilstm_model(self.bilstm_model, self.train_loader_bilstm, num_epochs=5)
@@ -145,12 +159,13 @@ class FeatureExtractor:
         embeddings = [self.word2vec_model.wv[token] for token in tokens if token in self.word2vec_model.wv]
         if not embeddings:
             return "Non-Hate Speech"  # If no known words are found, default to non-hate
-        
+
         embeddings = torch.tensor(embeddings, dtype=torch.float).unsqueeze(0).to(device)  # Add batch dimension
-        
+        lengths = torch.tensor([embeddings.size(1)], dtype=torch.long)  # Batch size is 1
+
         self.bilstm_model.eval()
         with torch.no_grad():
-            logits = self.bilstm_model(embeddings)
+            logits = self.bilstm_model(embeddings, lengths)
             probabilities = F.softmax(logits, dim=1)
             prediction = torch.argmax(probabilities, dim=1).item()
         
@@ -274,9 +289,11 @@ class FeatureExtractor:
         self._idf_model = TextCluster(list_of_all_text, num_topics)
 
     def _build_word_2_vec_model(self, list_of_baseline_posts_for_vec_model):
+        # Convert list of texts into list of token lists
+        tokenized_texts = [word_tokenize(text.lower()) for text in list_of_baseline_posts_for_vec_model]
         model = Word2Vec(min_count=1, window=5, vector_size=self.VECTOR_SIZE)
-        model.build_vocab(list_of_baseline_posts_for_vec_model)
-        model.train(list_of_baseline_posts_for_vec_model, total_examples=model.corpus_count, epochs=model.epochs)
+        model.build_vocab(tokenized_texts)
+        model.train(tokenized_texts, total_examples=model.corpus_count, epochs=model.epochs)
         self._word2vec_model = model
 
     def train_bilstm_model(self, model, train_loader, num_epochs=5):
@@ -286,10 +303,10 @@ class FeatureExtractor:
         for epoch in range(num_epochs):
             model.train()
             total_loss = 0
-            for embeddings, labels in train_loader:
-                embeddings, labels = embeddings.to(device), labels.to(device)
+            for embeddings, labels, lengths in train_loader:
+                embeddings, labels, lengths = embeddings.to(device), labels.to(device), lengths.to(device)
                 optimizer.zero_grad()
-                outputs = model(embeddings)
+                outputs = model(embeddings, lengths)
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
