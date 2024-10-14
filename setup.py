@@ -6,7 +6,7 @@ with open('requirements.txt', 'r') as f:
 
 setup(
     name="Tribal",
-    version="0.23",
+    version="0.24",
     packages=find_packages(),
     # Optional metadata
     author="James Stevenson",
