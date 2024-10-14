@@ -21,7 +21,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from Tribal.utils.easy_llm import EasyLLM
 import gc
 
-# Device configuration
+# Ensure GPU is available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Define Dataset class for loading data
@@ -71,7 +71,7 @@ class BiLSTMClassifier(nn.Module):
         return logits
 
 # Instantiate BiLSTM model
-embedding_dim = 100
+embedding_dim = 100  # Use the same dimension as Word2Vec embedding (updated to match VECTOR_SIZE)
 hidden_dim = 128
 bilstm_model = BiLSTMClassifier(embedding_dim, hidden_dim, num_labels=2).to(device)
 
@@ -83,7 +83,7 @@ def collate_fn(batch):
     embeddings_padded = torch.nn.utils.rnn.pad_sequence(embeddings, batch_first=True)
     return embeddings_padded, labels, lengths
 
-# FeatureExtractor class with lazy loading and optimizations
+# FeatureExtractor class with focus on BERT optimization
 class FeatureExtractor:
     VECTOR_SIZE = 100
     _idf_model = None
@@ -98,48 +98,42 @@ class FeatureExtractor:
         self.nlp = spacy.load("en_core_web_sm")
         self.nlp.add_pipe("textrank")
 
-        self.sentiment_analyzer = None
-        self.detoxify_model = None
-        self.embedding_model = None
+        self.sentiment_analyzer = SentimentIntensityAnalyzer()
+        self.detoxify_model = Detoxify('original')
+        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-        self.bilstm_model = bilstm_model
-
-        # DataLoader and training
+        # Initialize BERT tokenizer (Model will be loaded only when used)
+        self.bert_tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+        
+        # Prepare BiLSTM data loaders
         self.dataset_train_bilstm = ExtremistDataset(
             list_of_baseline_posts_for_vec_model,
             [0] * len(list_of_baseline_posts_for_vec_model),
             word2vec_model=self._word2vec_model,
             use_word2vec=True
         )
-        self.train_loader_bilstm = DataLoader(self.dataset_train_bilstm, batch_size=16, shuffle=True, collate_fn=collate_fn)
-        
-        # Train the BiLSTM model
-        self.train_bilstm_model(self.bilstm_model, self.train_loader_bilstm, num_epochs=3)
+        self.train_loader_bilstm = DataLoader(
+            self.dataset_train_bilstm, batch_size=32, shuffle=True, collate_fn=collate_fn
+        )
 
-        # TF-IDF Vectorizer
+        # Train BiLSTM model during initialization
+        self.train_bilstm_model(self.bilstm_model, self.train_loader_bilstm, num_epochs=5)
+
+        # Initialize hate speech lexicon (Replace with your provided list)
+        self.hate_speech_terms = set([
+            # Replace this placeholder with your list of hate speech terms
+            # Example: "term1", "term2", "term3", ...
+        ])
+
+        # Build TF-IDF vectorizer
         self.tfidf_vectorizer = TfidfVectorizer()
         self.tfidf_vectorizer.fit(list_of_baseline_posts_for_vec_model)
 
-    def lazy_load_sentiment(self):
-        if self.sentiment_analyzer is None:
-            self.sentiment_analyzer = SentimentIntensityAnalyzer()
-        return self.sentiment_analyzer
-
-    def lazy_load_detoxify(self):
-        if self.detoxify_model is None:
-            self.detoxify_model = Detoxify('original').to(device)
-        return self.detoxify_model
-
-    def lazy_load_embedding_model(self):
-        if self.embedding_model is None:
-            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2').to(device)
-        return self.embedding_model
-
     def classify_text_bert(self, text):
-        # Load and classify with BERT, then unload it to save memory
+        # Load BERT model only when needed
         bert_model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2).to(device)
         
-        inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
+        inputs = self.bert_tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
         inputs = {key: val.to(device) for key, val in inputs.items()}
         
         bert_model.eval()
@@ -148,8 +142,8 @@ class FeatureExtractor:
             logits = outputs.logits
             probabilities = F.softmax(logits, dim=1)
             prediction = torch.argmax(probabilities, dim=1).item()
-        
-        # Unload BERT model after use
+
+        # Unload BERT model after use to free up GPU memory
         del bert_model
         torch.cuda.empty_cache()
         gc.collect()
@@ -170,41 +164,11 @@ class FeatureExtractor:
             logits = self.bilstm_model(embeddings, lengths)
             probabilities = F.softmax(logits, dim=1)
             prediction = torch.argmax(probabilities, dim=1).item()
-        
+
         return "White Supremacist Hate Speech" if prediction == 1 else "Non-Hate Speech"
 
-    # Optimized BiLSTM training with gradient accumulation
-    def train_bilstm_model(self, model, train_loader, num_epochs=3, accumulation_steps=4):
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
-        model.train()
-
-        for epoch in range(num_epochs):
-            total_loss = 0
-            optimizer.zero_grad()
-
-            for i, (embeddings, labels, lengths) in enumerate(train_loader):
-                embeddings, labels, lengths = embeddings.to(device), labels.to(device), lengths.to(device)
-                
-                outputs = model(embeddings, lengths)
-                loss = criterion(outputs, labels)
-                loss = loss / accumulation_steps
-                
-                loss.backward()
-
-                if (i + 1) % accumulation_steps == 0:  
-                    optimizer.step()
-                    optimizer.zero_grad()
-
-                total_loss += loss.item()
-
-            print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader)}")
-
-        # Clear memory after training
-        torch.cuda.empty_cache()
-        gc.collect()
-
-    # Other methods remain unchanged...
+    ######################################
+    # Feature extraction methods remain unchanged...
 
     def get_capital_letter_word_frequency(self, text):
         tokens = word_tokenize(text)
@@ -270,16 +234,13 @@ class FeatureExtractor:
         return readability_index
 
     def get_toxicity(self, text):
-        detoxify_model = self.lazy_load_detoxify()
-        return detoxify_model.predict(text)
+        return self.detoxify_model.predict(text)
 
     def get_sentiment(self, text):
-        analyzer = self.lazy_load_sentiment()
-        return analyzer.polarity_scores(text)
+        return self.sentiment_analyzer.polarity_scores(text)
 
     def get_embeddings(self, text):
-        embedding_model = self.lazy_load_embedding_model()
-        embeddings = embedding_model.encode([text])
+        embeddings = self.embedding_model.encode([text])
         return embeddings
 
     def get_entities(self, text):
@@ -315,6 +276,8 @@ class FeatureExtractor:
         tokens = word_tokenize(text)
         return len(tokens) > 5
 
+    ################################
+
     def _build_idf_model(self, list_of_all_text, num_topics=5):
         self._idf_model = TextCluster(list_of_all_text, num_topics)
 
@@ -324,3 +287,21 @@ class FeatureExtractor:
         model.build_vocab(tokenized_texts)
         model.train(tokenized_texts, total_examples=model.corpus_count, epochs=model.epochs)
         self._word2vec_model = model
+
+    def train_bilstm_model(self, model, train_loader, num_epochs=5):
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        
+        for epoch in range(num_epochs):
+            model.train()
+            total_loss = 0
+            for embeddings, labels, lengths in train_loader:
+                embeddings, labels, lengths = embeddings.to(device), labels.to(device), lengths.to(device)
+                optimizer.zero_grad()
+                outputs = model(embeddings, lengths)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item()
+            
+            print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader)}")
