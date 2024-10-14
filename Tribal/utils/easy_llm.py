@@ -2,7 +2,7 @@ import re
 from typing import Any, Dict, List, Tuple, Type, Union
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, logging as hf_logging
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model, RootModel
 import json
 import random
 
@@ -213,3 +213,41 @@ class EasyLLM:
                 raise Exception(f"Failed to decode JSON: {e}")
         else:
             raise Exception(f"Failed to parse JSON from: '{llm_response}'")
+
+    @staticmethod
+    def parse_field(field_name: str, field_value: Any) -> tuple:
+        if isinstance(field_value, str):
+            return (str, Field(description=field_value))
+        elif isinstance(field_value, int):
+            return (int, Field(description=field_value))
+        elif isinstance(field_value, bool):
+            return (bool, Field(description=field_value))
+        elif isinstance(field_value, list):
+            if field_value and isinstance(field_value[0], dict):
+                return (List[EasyLLM.generate_pydantic_model_from_json_schema(f"{field_name}_item", field_value[0])], ...)
+            return (List[Any], Field(description="List of values"))
+        elif isinstance(field_value, dict):
+            return (EasyLLM.generate_pydantic_model_from_json_schema(field_name.capitalize(), field_value), ...)
+        else:
+            return (Any, Field(description="Unknown field type"))
+
+    @staticmethod
+    def generate_pydantic_model_from_json_schema(schema_name: str, json_schema: Union[str, Dict[str, Any], List[Any]]) -> Type[BaseModel]:
+        if isinstance(json_schema, str):
+            json_schema = json.loads(json_schema)
+
+        if isinstance(json_schema, dict):
+            fields = {
+                field_name: EasyLLM.parse_field(field_name, field_value)
+                for field_name, field_value in json_schema.items()
+            }
+            return create_model(schema_name, **fields)
+
+        elif isinstance(json_schema, list):
+            if json_schema and isinstance(json_schema[0], dict):
+                return RootModel[List[EasyLLM.generate_pydantic_model_from_json_schema(f"{schema_name}_item", json_schema[0])]]
+            else:
+                return RootModel[List[Any]]
+
+        else:
+            raise ValueError("The provided JSON schema must be a dictionary, list, or valid JSON string.")
