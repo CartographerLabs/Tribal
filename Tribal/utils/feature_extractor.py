@@ -9,8 +9,10 @@ from sentence_transformers import SentenceTransformer
 import spacy
 import pytextrank
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from Tribal.utils.text_cluster import TextCluster
 from detoxify import Detoxify
 from nltk.tokenize import word_tokenize
+from TRUNAJOD import surface_proxies, ttr
 from nltk.util import ngrams
 from collections import Counter
 from nltk import pos_tag
@@ -19,7 +21,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from Tribal.utils.easy_llm import EasyLLM
 import gc
 
-# Ensure GPU is available
+# Device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Define Dataset class for loading data
@@ -37,7 +39,7 @@ class ExtremistDataset(Dataset):
     def __getitem__(self, idx):
         text = self.texts[idx]
         label = self.labels[idx]
-
+        
         if self.use_word2vec:
             tokens = text.lower().split()
             embeddings = [self.word2vec_model.wv[token] for token in tokens if token in self.word2vec_model.wv]
@@ -46,7 +48,7 @@ class ExtremistDataset(Dataset):
             embeddings = torch.tensor(embeddings, dtype=torch.float)
             return embeddings, label
         else:
-            inputs = self.tokenizer(text, return_tensors="pt", max_length=128, truncation=True, padding="max_length")
+            inputs = self.tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
             inputs = {key: val.squeeze(0) for key, val in inputs.items()}
             inputs['labels'] = torch.tensor(label, dtype=torch.long)
             return inputs
@@ -68,9 +70,10 @@ class BiLSTMClassifier(nn.Module):
         logits = self.fc(h_n)
         return logits
 
-# Instantiate the models and tokenizer (lazy load where possible)
-tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-bilstm_model = BiLSTMClassifier(embedding_dim=100, hidden_dim=128, num_labels=2).to(device)
+# Instantiate BiLSTM model
+embedding_dim = 100
+hidden_dim = 128
+bilstm_model = BiLSTMClassifier(embedding_dim, hidden_dim, num_labels=2).to(device)
 
 # Custom collate function for DataLoader
 def collate_fn(batch):
@@ -95,15 +98,19 @@ class FeatureExtractor:
         self.nlp = spacy.load("en_core_web_sm")
         self.nlp.add_pipe("textrank")
 
-        # Sentiment analyzer, detoxify, and embedding model loaded only when needed
         self.sentiment_analyzer = None
         self.detoxify_model = None
         self.embedding_model = None
 
         self.bilstm_model = bilstm_model
 
-        # DataLoader and Training
-        self.dataset_train_bilstm = ExtremistDataset(list_of_baseline_posts_for_vec_model, [0] * len(list_of_baseline_posts_for_vec_model), word2vec_model=self._word2vec_model, use_word2vec=True)
+        # DataLoader and training
+        self.dataset_train_bilstm = ExtremistDataset(
+            list_of_baseline_posts_for_vec_model,
+            [0] * len(list_of_baseline_posts_for_vec_model),
+            word2vec_model=self._word2vec_model,
+            use_word2vec=True
+        )
         self.train_loader_bilstm = DataLoader(self.dataset_train_bilstm, batch_size=16, shuffle=True, collate_fn=collate_fn)
         
         # Train the BiLSTM model
@@ -132,7 +139,7 @@ class FeatureExtractor:
         # Load and classify with BERT, then unload it to save memory
         bert_model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2).to(device)
         
-        inputs = tokenizer(text, return_tensors="pt", max_length=128, truncation=True, padding="max_length")
+        inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
         inputs = {key: val.to(device) for key, val in inputs.items()}
         
         bert_model.eval()
@@ -181,11 +188,11 @@ class FeatureExtractor:
                 
                 outputs = model(embeddings, lengths)
                 loss = criterion(outputs, labels)
-                loss = loss / accumulation_steps  # Divide the loss by the accumulation steps
+                loss = loss / accumulation_steps
                 
                 loss.backward()
 
-                if (i + 1) % accumulation_steps == 0:  # Update weights after accumulation_steps
+                if (i + 1) % accumulation_steps == 0:  
                     optimizer.step()
                     optimizer.zero_grad()
 
@@ -197,21 +204,7 @@ class FeatureExtractor:
         torch.cuda.empty_cache()
         gc.collect()
 
-    # Sentiment, detoxify, embedding, and other methods should lazy load their models:
-    def get_sentiment(self, text):
-        analyzer = self.lazy_load_sentiment()
-        return analyzer.polarity_scores(text)
-
-    def get_toxicity(self, text):
-        detoxify_model = self.lazy_load_detoxify()
-        return detoxify_model.predict(text)
-
-    def get_embeddings(self, text):
-        embedding_model = self.lazy_load_embedding_model()
-        embeddings = embedding_model.encode([text])
-        return embeddings
-
-    # Other feature extraction methods remain the same...
+    # Other methods remain unchanged...
 
     def get_capital_letter_word_frequency(self, text):
         tokens = word_tokenize(text)
@@ -275,6 +268,19 @@ class FeatureExtractor:
         doc = self.nlp(text)
         readability_index = surface_proxies.readability_index(doc)
         return readability_index
+
+    def get_toxicity(self, text):
+        detoxify_model = self.lazy_load_detoxify()
+        return detoxify_model.predict(text)
+
+    def get_sentiment(self, text):
+        analyzer = self.lazy_load_sentiment()
+        return analyzer.polarity_scores(text)
+
+    def get_embeddings(self, text):
+        embedding_model = self.lazy_load_embedding_model()
+        embeddings = embedding_model.encode([text])
+        return embeddings
 
     def get_entities(self, text):
         doc = self.nlp(text)
