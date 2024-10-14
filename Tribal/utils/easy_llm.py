@@ -5,6 +5,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from pydantic import BaseModel, Field, create_model, RootModel
 import json
 import random
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import PromptTemplate
 
 # Suppress unnecessary warnings
 hf_logging.set_verbosity_error()
@@ -213,6 +215,36 @@ class EasyLLM:
                 raise Exception(f"Failed to decode JSON: {e}")
         else:
             raise Exception(f"Failed to parse JSON from: '{llm_response}'")
+
+    def generate_json_prompt(self, schema: Type[BaseModel], query: str) -> str:
+        """
+        Generates a JSON prompt based on a given schema and query.
+
+        Args:
+            schema (Type[BaseModel]): The Pydantic schema to structure the output.
+            query (str): The query for which the JSON response is to be generated.
+
+        Returns:
+            str: The JSON-formatted prompt.
+        """
+        # Ensure schema is a class (Type[BaseModel])
+        if not isinstance(schema, type) or not issubclass(schema, BaseModel):
+            raise TypeError("The schema argument must be a Pydantic model class.")
+
+        # Initialize the JSON output parser with your schema
+        parser = JsonOutputParser(pydantic_object=schema)
+
+        # Create a prompt template with the format instructions injected
+        prompt = PromptTemplate(
+            template="Answer the following query in JSON format according to the provided schema:\n{format_instructions}\n\n{query}\n",
+            input_variables=["query"],
+            partial_variables={"format_instructions": parser.get_format_instructions()},
+        )
+
+        # Generate the response using the model and parser
+        response = prompt.format(query=query)
+
+        return response
 
     @staticmethod
     def parse_field(field_name: str, field_value: Any) -> tuple:
