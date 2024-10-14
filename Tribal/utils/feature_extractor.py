@@ -9,21 +9,17 @@ from sentence_transformers import SentenceTransformer
 import spacy
 import pytextrank
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from Tribal.utils.text_cluster import TextCluster
 from detoxify import Detoxify
 from nltk.tokenize import word_tokenize
-from TRUNAJOD import surface_proxies, ttr
 from nltk.util import ngrams
 from collections import Counter
 from nltk import pos_tag
 from nrclex import NRCLex
 from sklearn.feature_extraction.text import TfidfVectorizer
 from Tribal.utils.easy_llm import EasyLLM
-# Load pre-trained models as mentioned in the paper
-# Use domain-specific word embedding with BiLSTM for one approach and BERT for the other approach
-model_name = "bert-base-uncased"  # You may replace this with your own fine-tuned BERT model
-num_labels = 2  # White supremacist (1) or not (0)
+import gc
 
+# Ensure GPU is available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Define Dataset class for loading data
@@ -41,16 +37,16 @@ class ExtremistDataset(Dataset):
     def __getitem__(self, idx):
         text = self.texts[idx]
         label = self.labels[idx]
-        
+
         if self.use_word2vec:
             tokens = text.lower().split()
             embeddings = [self.word2vec_model.wv[token] for token in tokens if token in self.word2vec_model.wv]
             if not embeddings:
                 embeddings = [np.zeros(self.word2vec_model.vector_size)]
             embeddings = torch.tensor(embeddings, dtype=torch.float)
-            return embeddings, label  # Return embeddings and label
+            return embeddings, label
         else:
-            inputs = self.tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
+            inputs = self.tokenizer(text, return_tensors="pt", max_length=128, truncation=True, padding="max_length")
             inputs = {key: val.squeeze(0) for key, val in inputs.items()}
             inputs['labels'] = torch.tensor(label, dtype=torch.long)
             return inputs
@@ -63,26 +59,18 @@ class BiLSTMClassifier(nn.Module):
         self.hidden_dim = hidden_dim
         self.lstm = nn.LSTM(embedding_dim, hidden_dim, bidirectional=True, batch_first=True)
         self.fc = nn.Linear(hidden_dim * 2, num_labels)
-        
 
     def forward(self, x, lengths):
-        # Pack the padded sequence
         packed_input = torch.nn.utils.rnn.pack_padded_sequence(x, lengths.cpu(), batch_first=True, enforce_sorted=False)
         packed_output, (h_n, c_n) = self.lstm(packed_input)
-        # Concatenate the final forward and backward hidden states
         h_n = h_n.permute(1, 0, 2)
-        h_n = h_n.contiguous().view(h_n.size(0), -1)  # [batch_size, hidden_dim * num_directions]
+        h_n = h_n.contiguous().view(h_n.size(0), -1)
         logits = self.fc(h_n)
         return logits
 
-# Instantiate BiLSTM model
-embedding_dim = 100  # Use the same dimension as Word2Vec embedding (updated to match VECTOR_SIZE)
-hidden_dim = 128
-bilstm_model = BiLSTMClassifier(embedding_dim, hidden_dim, num_labels).to(device)
-
-# Load the tokenizer and prepare BERT model
-tokenizer = BertTokenizer.from_pretrained(model_name)
-bert_model = BertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels).to(device)
+# Instantiate the models and tokenizer (lazy load where possible)
+tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+bilstm_model = BiLSTMClassifier(embedding_dim=100, hidden_dim=128, num_labels=2).to(device)
 
 # Custom collate function for DataLoader
 def collate_fn(batch):
@@ -92,10 +80,9 @@ def collate_fn(batch):
     embeddings_padded = torch.nn.utils.rnn.pad_sequence(embeddings, batch_first=True)
     return embeddings_padded, labels, lengths
 
-# Integration into FeatureExtractor class
+# FeatureExtractor class with lazy loading and optimizations
 class FeatureExtractor:
-
-    VECTOR_SIZE = 100  # Define VECTOR_SIZE as a class variable
+    VECTOR_SIZE = 100
     _idf_model = None
     _word2vec_model = None
 
@@ -103,66 +90,73 @@ class FeatureExtractor:
         self._build_idf_model(list_of_text_for_topic_creation)
         self._build_word_2_vec_model(list_of_baseline_posts_for_vec_model)
         self.llm = EasyLLM()
-        # Load spaCy model with necessary components
+
+        # Lazy load spacy and models
         self.nlp = spacy.load("en_core_web_sm")
-        self.nlp.add_pipe("textrank")  # Ensure PyTextRank is added to the pipeline
+        self.nlp.add_pipe("textrank")
 
-        # Initialize models once to avoid reloading them every time
-        self.sentiment_analyzer = SentimentIntensityAnalyzer()
-        self.detoxify_model = Detoxify('original')
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        # Sentiment analyzer, detoxify, and embedding model loaded only when needed
+        self.sentiment_analyzer = None
+        self.detoxify_model = None
+        self.embedding_model = None
 
-        # Initialize BERT and BiLSTM models for hate speech detection
-        self.bert_tokenizer = tokenizer
-        self.bert_model = bert_model
         self.bilstm_model = bilstm_model
-        self.word2vec_model = self._word2vec_model
 
-        # Prepare BiLSTM and BERT data loaders
-        self.dataset_train_bilstm = ExtremistDataset(
-            list_of_baseline_posts_for_vec_model,
-            [0] * len(list_of_baseline_posts_for_vec_model),
-            word2vec_model=self.word2vec_model,
-            use_word2vec=True
-        )
-        self.train_loader_bilstm = DataLoader(
-            self.dataset_train_bilstm, batch_size=32, shuffle=True, collate_fn=collate_fn
-        )
+        # DataLoader and Training
+        self.dataset_train_bilstm = ExtremistDataset(list_of_baseline_posts_for_vec_model, [0] * len(list_of_baseline_posts_for_vec_model), word2vec_model=self._word2vec_model, use_word2vec=True)
+        self.train_loader_bilstm = DataLoader(self.dataset_train_bilstm, batch_size=16, shuffle=True, collate_fn=collate_fn)
+        
+        # Train the BiLSTM model
+        self.train_bilstm_model(self.bilstm_model, self.train_loader_bilstm, num_epochs=3)
 
-        # Train BiLSTM model during initialization
-        self.train_bilstm_model(self.bilstm_model, self.train_loader_bilstm, num_epochs=5)
-
-        # Initialize hate speech lexicon (Replace with your provided list)
-        self.hate_speech_terms = set([
-            # Replace this placeholder with your list of hate speech terms
-            # Example: "term1", "term2", "term3", ...
-        ])
-
-        # Build TF-IDF vectorizer
+        # TF-IDF Vectorizer
         self.tfidf_vectorizer = TfidfVectorizer()
         self.tfidf_vectorizer.fit(list_of_baseline_posts_for_vec_model)
 
+    def lazy_load_sentiment(self):
+        if self.sentiment_analyzer is None:
+            self.sentiment_analyzer = SentimentIntensityAnalyzer()
+        return self.sentiment_analyzer
+
+    def lazy_load_detoxify(self):
+        if self.detoxify_model is None:
+            self.detoxify_model = Detoxify('original').to(device)
+        return self.detoxify_model
+
+    def lazy_load_embedding_model(self):
+        if self.embedding_model is None:
+            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2').to(device)
+        return self.embedding_model
+
     def classify_text_bert(self, text):
-        inputs = self.bert_tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
+        # Load and classify with BERT, then unload it to save memory
+        bert_model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2).to(device)
+        
+        inputs = tokenizer(text, return_tensors="pt", max_length=128, truncation=True, padding="max_length")
         inputs = {key: val.to(device) for key, val in inputs.items()}
         
-        self.bert_model.eval()
+        bert_model.eval()
         with torch.no_grad():
-            outputs = self.bert_model(**inputs)
+            outputs = bert_model(**inputs)
             logits = outputs.logits
             probabilities = F.softmax(logits, dim=1)
             prediction = torch.argmax(probabilities, dim=1).item()
         
+        # Unload BERT model after use
+        del bert_model
+        torch.cuda.empty_cache()
+        gc.collect()
+
         return "White Supremacist Hate Speech" if prediction == 1 else "Non-Hate Speech"
 
     def classify_text_bilstm(self, text):
         tokens = text.lower().split()
-        embeddings = [self.word2vec_model.wv[token] for token in tokens if token in self.word2vec_model.wv]
+        embeddings = [self._word2vec_model.wv[token] for token in tokens if token in self._word2vec_model.wv]
         if not embeddings:
-            return "Non-Hate Speech"  # If no known words are found, default to non-hate
+            return "Non-Hate Speech"
 
-        embeddings = torch.tensor(embeddings, dtype=torch.float).unsqueeze(0).to(device)  # Add batch dimension
-        lengths = torch.tensor([embeddings.size(1)], dtype=torch.long)  # Batch size is 1
+        embeddings = torch.tensor(embeddings, dtype=torch.float).unsqueeze(0).to(device)
+        lengths = torch.tensor([embeddings.size(1)], dtype=torch.long)
 
         self.bilstm_model.eval()
         with torch.no_grad():
@@ -172,8 +166,52 @@ class FeatureExtractor:
         
         return "White Supremacist Hate Speech" if prediction == 1 else "Non-Hate Speech"
 
-    ######################################
-    # New Feature Extraction Methods
+    # Optimized BiLSTM training with gradient accumulation
+    def train_bilstm_model(self, model, train_loader, num_epochs=3, accumulation_steps=4):
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        model.train()
+
+        for epoch in range(num_epochs):
+            total_loss = 0
+            optimizer.zero_grad()
+
+            for i, (embeddings, labels, lengths) in enumerate(train_loader):
+                embeddings, labels, lengths = embeddings.to(device), labels.to(device), lengths.to(device)
+                
+                outputs = model(embeddings, lengths)
+                loss = criterion(outputs, labels)
+                loss = loss / accumulation_steps  # Divide the loss by the accumulation steps
+                
+                loss.backward()
+
+                if (i + 1) % accumulation_steps == 0:  # Update weights after accumulation_steps
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                total_loss += loss.item()
+
+            print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader)}")
+
+        # Clear memory after training
+        torch.cuda.empty_cache()
+        gc.collect()
+
+    # Sentiment, detoxify, embedding, and other methods should lazy load their models:
+    def get_sentiment(self, text):
+        analyzer = self.lazy_load_sentiment()
+        return analyzer.polarity_scores(text)
+
+    def get_toxicity(self, text):
+        detoxify_model = self.lazy_load_detoxify()
+        return detoxify_model.predict(text)
+
+    def get_embeddings(self, text):
+        embedding_model = self.lazy_load_embedding_model()
+        embeddings = embedding_model.encode([text])
+        return embeddings
+
+    # Other feature extraction methods remain the same...
 
     def get_capital_letter_word_frequency(self, text):
         tokens = word_tokenize(text)
@@ -211,9 +249,6 @@ class FeatureExtractor:
         tfidf_vector = self.tfidf_vectorizer.transform([text])
         return tfidf_vector
 
-    ######################################
-    # Other methods from the original FeatureExtractor class...
-
     def get_text_topic(self, text):
         dominant_topic = self._idf_model.add_new_text(text)
         return dominant_topic
@@ -240,16 +275,6 @@ class FeatureExtractor:
         doc = self.nlp(text)
         readability_index = surface_proxies.readability_index(doc)
         return readability_index
-
-    def get_toxicity(self, text):
-        return self.detoxify_model.predict(text)
-
-    def get_sentiment(self, text):
-        return self.sentiment_analyzer.polarity_scores(text)
-
-    def get_embeddings(self, text):
-        embeddings = self.embedding_model.encode([text])
-        return embeddings
 
     def get_entities(self, text):
         doc = self.nlp(text)
@@ -284,33 +309,12 @@ class FeatureExtractor:
         tokens = word_tokenize(text)
         return len(tokens) > 5
 
-    ################################
-
     def _build_idf_model(self, list_of_all_text, num_topics=5):
         self._idf_model = TextCluster(list_of_all_text, num_topics)
 
     def _build_word_2_vec_model(self, list_of_baseline_posts_for_vec_model):
-        # Convert list of texts into list of token lists
         tokenized_texts = [word_tokenize(text.lower()) for text in list_of_baseline_posts_for_vec_model]
         model = Word2Vec(min_count=1, window=5, vector_size=self.VECTOR_SIZE)
         model.build_vocab(tokenized_texts)
         model.train(tokenized_texts, total_examples=model.corpus_count, epochs=model.epochs)
         self._word2vec_model = model
-
-    def train_bilstm_model(self, model, train_loader, num_epochs=5):
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
-        
-        for epoch in range(num_epochs):
-            model.train()
-            total_loss = 0
-            for embeddings, labels, lengths in train_loader:
-                embeddings, labels, lengths = embeddings.to(device), labels.to(device), lengths.to(device)
-                optimizer.zero_grad()
-                outputs = model(embeddings, lengths)
-                loss = criterion(outputs, labels)
-                loss.backward()
-                optimizer.step()
-                total_loss += loss.item()
-            
-            print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader)}")
