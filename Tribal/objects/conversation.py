@@ -133,7 +133,7 @@ Posts:
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm.reset_dialogue()
         print(response)
-        return response
+        return response["role"]
 
     
     def _get_extremism_for_user(self, user):
@@ -156,7 +156,7 @@ Posts:
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         print(response)
         self._feature_extractor.llm.reset_dialogue()
-        return response
+        return response["is_extremist"]
 
     def _get_centrality_for_user(self, user):
         return self._centralities[user]

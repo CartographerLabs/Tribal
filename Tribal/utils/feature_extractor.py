@@ -1,5 +1,4 @@
 import torch
-from transformers import BertTokenizer, BertForSequenceClassification
 import torch.nn.functional as F
 from gensim.models import Word2Vec
 from torch import nn, optim
@@ -61,7 +60,7 @@ def collate_fn(batch):
     embeddings_padded = torch.nn.utils.rnn.pad_sequence(embeddings, batch_first=True)
     return embeddings_padded, labels, lengths
 
-# FeatureExtractor class with focus on BERT optimization and BiLSTM model initialization
+# FeatureExtractor class
 class FeatureExtractor:
     VECTOR_SIZE = 100
     _idf_model = None
@@ -88,26 +87,9 @@ class FeatureExtractor:
         self.tfidf_vectorizer = TfidfVectorizer()
         self.tfidf_vectorizer.fit(list_of_baseline_posts_for_vec_model)
 
-    def classify_text_bilstm(self, text):
-        tokens = text.lower().split()
-        embeddings = [self._word2vec_model.wv[token] for token in tokens if token in self._word2vec_model.wv]
-        if not embeddings:
-            return "Non-Hate Speech"
-
-        embeddings = torch.tensor(embeddings, dtype=torch.float).unsqueeze(0).to(device)
-        lengths = torch.tensor([embeddings.size(1)], dtype=torch.long)
-
-        self.bilstm_model.eval()
-        with torch.no_grad():
-            logits = self.bilstm_model(embeddings, lengths)
-            probabilities = F.softmax(logits, dim=1)
-            prediction = torch.argmax(probabilities, dim=1).item()
-
-        return "White Supremacist Hate Speech" if prediction == 1 else "Non-Hate Speech"
-
     ######################################
     # Feature extraction methods remain unchanged...
-
+    
     def get_capital_letter_word_frequency(self, text):
         tokens = word_tokenize(text)
         total_words = len(tokens)
@@ -225,21 +207,3 @@ class FeatureExtractor:
         model.build_vocab(tokenized_texts)
         model.train(tokenized_texts, total_examples=model.corpus_count, epochs=model.epochs)
         self._word2vec_model = model
-
-    def train_bilstm_model(self, model, train_loader, num_epochs=5):
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
-        
-        for epoch in range(num_epochs):
-            model.train()
-            total_loss = 0
-            for embeddings, labels, lengths in train_loader:
-                embeddings, labels, lengths = embeddings.to(device), labels.to(device), lengths.to(device)
-                optimizer.zero_grad()
-                outputs = model(embeddings, lengths)
-                loss = criterion(outputs, labels)
-                loss.backward()
-                optimizer.step()
-                total_loss += loss.item()
-            
-            print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader)}")
