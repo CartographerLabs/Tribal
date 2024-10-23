@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 import json
 import numpy as np
-import gc 
+import gc
+
 # Assuming FeatureExtractor is imported correctly
 from Tribal.utils.feature_extractor import FeatureExtractor
 from Tribal.utils.config_manager import ConfigManager
@@ -162,8 +163,8 @@ class PostObject(ABC):
     @property
     def capital_letter_word_frequency(self):
         if self._capital_letter_word_frequency is None:
-            self._capital_letter_word_frequency = self._feature_extractor.get_capital_letter_word_frequency(
-                self.post
+            self._capital_letter_word_frequency = (
+                self._feature_extractor.get_capital_letter_word_frequency(self.post)
             )
         return self._capital_letter_word_frequency
 
@@ -188,8 +189,8 @@ class PostObject(ABC):
     @property
     def hate_speech_lexicon_counts(self):
         if self._hate_speech_lexicon_counts is None:
-            self._hate_speech_lexicon_counts = self._feature_extractor.get_hate_speech_lexicon_counts(
-                self.post
+            self._hate_speech_lexicon_counts = (
+                self._feature_extractor.get_hate_speech_lexicon_counts(self.post)
             )
         return self._hate_speech_lexicon_counts
 
@@ -242,7 +243,7 @@ This is a complex task with ethical implications. False positives can have serio
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
-        gc()
+        gc.collect()
         cuda.Context.pop()
         self._operational = response["is_operational_planning"]
         return response["is_operational_planning"]
@@ -299,7 +300,11 @@ Response: 'Travel'"""
             "readability": str(self.readability),
             "toxicity": str(self.toxicity),
             "sentiment": str(self.sentiment),
-            "embeddings": self.embeddings.tolist() if isinstance(self.embeddings, np.ndarray) else self.embeddings,
+            "embeddings": (
+                self.embeddings.tolist()
+                if isinstance(self.embeddings, np.ndarray)
+                else self.embeddings
+            ),
             "entities": self.entities,
             "keywords": self.keywords,
             "capital_letter_word_frequency": str(self.capital_letter_word_frequency),
@@ -307,8 +312,16 @@ Response: 'Travel'"""
             "n_grams": self.n_grams,
             "emotion_scores": self.emotion_scores,
             "hate_speech_lexicon_counts": self.hate_speech_lexicon_counts,
-            "tf_idf_vector": self.tf_idf_vector.toarray().tolist() if hasattr(self.tf_idf_vector, 'toarray') else self.tf_idf_vector,
-            "text_vector": self.text_vector.tolist() if isinstance(self.text_vector, np.ndarray) else self.text_vector,
+            "tf_idf_vector": (
+                self.tf_idf_vector.toarray().tolist()
+                if hasattr(self.tf_idf_vector, "toarray")
+                else self.tf_idf_vector
+            ),
+            "text_vector": (
+                self.text_vector.tolist()
+                if isinstance(self.text_vector, np.ndarray)
+                else self.text_vector
+            ),
             "operational": str(self.operational),
             "theme": str(self.theme),
         }
