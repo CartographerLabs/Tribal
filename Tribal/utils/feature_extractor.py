@@ -53,28 +53,6 @@ class ExtremistDataset(Dataset):
             inputs['labels'] = torch.tensor(label, dtype=torch.long)
             return inputs
 
-# Define BiLSTM model class for classification
-class BiLSTMClassifier(nn.Module):
-    def __init__(self, embedding_dim, hidden_dim, num_labels):
-        super(BiLSTMClassifier, self).__init__()
-        self.embedding_dim = embedding_dim
-        self.hidden_dim = hidden_dim
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim, bidirectional=True, batch_first=True)
-        self.fc = nn.Linear(hidden_dim * 2, num_labels)
-
-    def forward(self, x, lengths):
-        packed_input = torch.nn.utils.rnn.pack_padded_sequence(x, lengths.cpu(), batch_first=True, enforce_sorted=False)
-        packed_output, (h_n, c_n) = self.lstm(packed_input)
-        h_n = h_n.permute(1, 0, 2)
-        h_n = h_n.contiguous().view(h_n.size(0), -1)
-        logits = self.fc(h_n)
-        return logits
-
-# Instantiate BiLSTM model
-embedding_dim = 100  # Use the same dimension as Word2Vec embedding (updated to match VECTOR_SIZE)
-hidden_dim = 128
-bilstm_model = BiLSTMClassifier(embedding_dim, hidden_dim, num_labels=2).to(device)
-
 # Custom collate function for DataLoader
 def collate_fn(batch):
     embeddings = [item[0] for item in batch]
@@ -102,54 +80,13 @@ class FeatureExtractor:
         self.sentiment_analyzer = SentimentIntensityAnalyzer()
         self.detoxify_model = Detoxify('original')
         self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-
-        # Initialize BERT tokenizer (Model will be loaded only when used)
-        self.bert_tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         
-        # Initialize the BiLSTM model
-        self.bilstm_model = bilstm_model
-
-        # Prepare BiLSTM data loaders
-        self.dataset_train_bilstm = ExtremistDataset(
-            list_of_baseline_posts_for_vec_model,
-            [0] * len(list_of_baseline_posts_for_vec_model),
-            word2vec_model=self._word2vec_model,
-            use_word2vec=True
-        )
-        self.train_loader_bilstm = DataLoader(
-            self.dataset_train_bilstm, batch_size=32, shuffle=True, collate_fn=collate_fn
-        )
-
-        # Train BiLSTM model during initialization
-        self.train_bilstm_model(self.bilstm_model, self.train_loader_bilstm, num_epochs=5)
-
         # Initialize hate speech lexicon (Replace with your provided list)
         self.hate_speech_terms = set(["Alert","Aim","Automatic","Anguish","Agitator","Apartheid","Agency","Aircraft","Airplane","Acid","Airport","Aerial","Assassinate","Account","Arms","Assault","Ambush","Anarchy","Authority","Aggressor","Allies","Alarm","Ashore","Atrocity","Artillery","Airfield","Annihilate","Appeasement","Arsenal","Attrition","Aggression","Armory","Ammunition","Advance","Assassin","Armedforces","Alliance","Attack","Armament","Bloodletting","Bulletproof","Brutal","Betray","Betrayal","Blood(y)","Boobytrap","Bombardment","Battalion","Bullet","Brute","Burn","Brutality","Bully","Blowup","Bunker","Booby trap","Blast","Bomb","Breach","Belligerent","Battle","Bury","Bloody","Blood","Blindside","Burning","Barrage","Barricade","Battlefield","Break","Conspiracy","Clash","Conspire","Coordinate","Civilian","Cautionary","Chief","Coalition","Camouflage","Captive","Coordinates","Corps","Carrier","Control","Concentration","Carnage","Conquer","Clamor","Compassion","Compliance","Crash","Checkpoint","Clandestine","Chopper","Confrontation","Causes","Countermand","Conflict","Crime","Counterattack","Courageous","Chaos","Commandos","Casualties","Confrontation(al)","Cautious","Consequences","Consolidate","Convoy","Checking","Crisis","Confusion","Cataclysm","Careen","Command(or)","Combat","Charred","Collapse","Cross-hairs","Capture","Culpability","Corpse","Cargo","Cadaver","Charge","Concussion","Campaign","Conflagration","Deliberate","Devastation","Discipline","Disperse","Dispatch","Dead","Death","Defensive","Dominate","Drone","Detect","Danger","Detection","Deploy","Detonate","Destruction","Demolish","Demoralize","Damage","Defend","Deception","Drama","Disaster","Dictator","Despot","Disease","Device","Domination","Duck","Duty","Debris","Dash","Decline","Defiant","Dictatorship","Defect","Doom","Disastrous","Division","Die","Downfall","Dispute","Desert","Disruption","Disarray","Dissonance","Dread","Defense","Dismantle","Dangerous","Deadly","Destroy","Demoralization","Debacle","Disarmament","Enemy","Expunge","Evacuate","Escalate","Explosion","Execute","Excess","Extremism","Evacuee","Explosive","Execution","Epithet","Exploitation","Enforce","Exercise","Explode","Expectations","Encounter","Engagement","Escape","Escalation","Enforcement","Endurance","Force(s)","Faction","Force","Fierce","Flight","Fortification","Flank","Ferment","Frenzy","Feud","Front lines","Fray","Fear","Fearless","Felon","Fugitive","Fright","Forceful","Furtive","Fuel","Fighter","Fanatic","Fiery","Fearful","Forces","Flee","Fatal","Frontlines","Foxhole","Ferocious","Fight","Gas","Germ warfare","Grenade","Guided bombs","Grave","Gang up on","Garrison","Guard","Generator","Germwarfare","Groans","Gunship","Government","Gang","Genocide","Grievous","Guerrillas","Guidedbombs","Guns","Hazard","Harass","Heroic","Hide","Hostility","Horses","Horror","Horrific","Harsh","Hit","Hiding","Helicopter","Heroism","Hijack","Hostile","Hijacker","Hatred","Hit-and-run","Howitzer","Hurt","Hatch","Holocaust","Hammering","Hate","Involvement","International","Interdiction","Infanticide","Ire","Invasion","Incident","Interrogation","Ignite","Instructions","Intimidate","Insurrection","Inflame","Inferred","Intense","Incontrovertible","Impact","Informant","Investigate","Intelligence","Improvise","Incite","Intercept","Infantry","Investigations","Infiltrate","Injuries","Inmate","Intervene","Insurgent","Jail","Join","Jets","Jeer","Knock-out","Keening","Knife","Kamikaze","Kidnap","Knives","Keen","Kill","Killing","Lamentation","Legacy","Liaison","Loathsome","Loyalty","Landmines","Laser-activated","Liberation","Linksto","Launcher","Liberators","Launch","Method","Militaristic","Mobile","Militant","Massacre","Menace","Malicious","Military","Momentum","Mines","Militancy","Maim","Militia","Mob","Mobilization","Machines","Mortars","Machineguns","March","Megalomania","Mission","Mayhem","Muscle","Murder","Missile","Mistreatment","Malevolent","Munitions","Maraud","Notorious","Nationalist","Negotiation","Nightmare","Nitrate","Neutralize","Overthrow","Onerous","Out of control","Operation","Officials","Offensive","Order","Overrun","Opposition","Outbreak","Planes","Prisoner","Pilot","Prowl","Post-traumatic","Pugnacious","Partisan","Premeditate","Prey","Patriotism","Plunder","Paramedics","Platoon","Potent","Powder","Power","Pacify","Persecute","Penetration","Pound","Provocation","Pistol","Performance","Patriot","Proliferation","Penetrate","Pushing","Pulverize","Preemptive","Petrify","Prison","Perform","Position","Photos","Patrol","Powerful","Quarrel","Quail","Quiver","Quell","Rally","Refugee","Revenge","Radical","Reputation","Retreat","Ravish","Revolution","Retribution","Radiation","Relentless","Rift","Rule","Resistance","Rounds","Recovery","Rebellion","Reparation","Retaliation","Reaction","Readiness","Recruitment","Reconnaissance","Regiment","Rot","Recruit","Reinforcements","Reprisal","Rival","Ricochet","Ravage","Rocket","Ruthless","Rescue","Rage","Rebel","Rifle","Riot","Regime","Shot","Strategy","Smash","Survival","Survivor","Showdown","Supplies","Sacrifice","Stronghold","Surrender","Storage","Salvage","Sanction","Strength","Surprise","Security","Seize","Secrecy","Seizure","Strife","Siege","Sensor","Secret","Stash","Scramble","Storm","Shock","Shells","Sedition","Skirmish","Strip","Suppression","Strangle","Special-ops","Shoot","Smuggle","Slaughter","Score","Sabotage","Spokesman","Soldier","Savage","Superstition","Suffering","Squad","Strategist","Specialized","Stalk","Struggle","Straggler","Subversive","Support","Stealth","Spysatellite","Strategic","Shelling","Spy","Screening","Strike","Setback","Spotter","Scare","Spy satellite","Submarine","Tsunami","Tactics","Triumph","Training","Tragic","Trauma","Torch","Terrorism","Threat","Terrorize","Thug","Torpedo","Tension","Turbulent","Tornado","Trigger","Trench","Tank","Terror","Topple","Tourniquet","Target","Terrain","Thwart","Treachery","Transportation","Trample","Trap","Terrorist","Threaten","Uprising","Urgency","Unruly","Unite","Unleash","Unify","Unit","Unexpected","Unbelievable","Uniform","Unconventional","Vociferous","Virulence","Violence","Vulnerability","Vow","Venomous","Victory","Vanguard","Vehicular","Vital","Vicious","Violation","Vanish","Veteran","Vehicle","Void","Vile","Vitriol","Vagrant","Vilify","Vendetta","Watchful","Warnings","Weather","Watchlist","Wince","Warplane","Watchdog","Weapon","Well-trained","Worldwide","Wreckage","Wage","Wound","Warrior","Wounds","Whiz","Warrant","Warheads","War","Wisdom","X-ray","Yearn","Yelling","Zigzag","Zeal","Zealot","Zone","pedophile","child molester","demonic","scumbag","fucking","demon-god","daemon"])
 
         # Build TF-IDF vectorizer
         self.tfidf_vectorizer = TfidfVectorizer()
         self.tfidf_vectorizer.fit(list_of_baseline_posts_for_vec_model)
-
-    def classify_text_bert(self, text):
-        # Load BERT model only when needed
-        bert_model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2).to(device)
-        
-        inputs = self.bert_tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
-        inputs = {key: val.to(device) for key, val in inputs.items()}
-        
-        bert_model.eval()
-        with torch.no_grad():
-            outputs = bert_model(**inputs)
-            logits = outputs.logits
-            probabilities = F.softmax(logits, dim=1)
-            prediction = torch.argmax(probabilities, dim=1).item()
-
-        # Unload BERT model after use to free up GPU memory
-        del bert_model
-        torch.cuda.empty_cache()
-        gc.collect()
-
-        return "White Supremacist Hate Speech" if prediction == 1 else "Non-Hate Speech"
 
     def classify_text_bilstm(self, text):
         tokens = text.lower().split()
