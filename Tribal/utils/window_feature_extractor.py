@@ -3,7 +3,7 @@ import re
 import json 
 from datetime import datetime
 
-from Tribal.utils.easy_llm import EasyLLM
+from easyLLM.easyLLM import EasyLLM
 
 class WindowFeatureExtractor():
 
