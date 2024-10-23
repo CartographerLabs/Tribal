@@ -6,8 +6,7 @@ import gc
 # Assuming FeatureExtractor is imported correctly
 from Tribal.utils.feature_extractor import FeatureExtractor
 from Tribal.utils.config_manager import ConfigManager
-import pycuda.driver as cuda
-import pycuda.autoinit
+import torch
 
 
 class PostObject(ABC):
@@ -244,7 +243,8 @@ This is a complex task with ethical implications. False positives can have serio
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
-        cuda.Context.pop()
+        torch.cuda.empty_cache()
+
         self._operational = response["is_operational_planning"]
         return response["is_operational_planning"]
 
@@ -279,7 +279,8 @@ Response: 'Travel'"""
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
-        cuda.Context.pop()
+        torch.cuda.empty_cache()
+
 
         self._theme = response["theme"]
         return response["theme"]

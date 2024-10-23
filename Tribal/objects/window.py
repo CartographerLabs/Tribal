@@ -4,8 +4,7 @@ from Tribal.utils.random_word import generate_random_name
 from Tribal.utils.window_feature_extractor import WindowFeatureExtractor
 from Tribal.objects.conversation import ConversationObject
 import json
-import pycuda.driver as cuda
-import pycuda.autoinit
+import torch
 import gc
 
 
@@ -157,7 +156,7 @@ Posts:
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
-        cuda.Context.pop()
+        torch.cuda.empty_cache()
 
         return response["role"]
 
@@ -192,7 +191,8 @@ Posts:
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
-        cuda.Context.pop()
+        torch.cuda.empty_cache()
+
         return response["is_extremist"]
 
     def _get_centrality_for_user(self, user):

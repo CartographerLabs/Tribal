@@ -6,8 +6,8 @@ import networkx as nx
 import re
 from datetime import datetime
 import json
-import pycuda.driver as cuda
-import pycuda.autoinit
+import gc
+import torch
 
 from Tribal.objects.user import UserObject
 from Tribal.utils.window_feature_extractor import WindowFeatureExtractor
@@ -151,7 +151,8 @@ Posts:
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
-        cuda.Context.pop()
+        torch.cuda.empty_cache()
+
 
         print(response)
         return response["role"]
@@ -188,7 +189,8 @@ Posts:
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
-        cuda.Context.pop()
+        torch.cuda.empty_cache()
+
         return response["is_extremist"]
 
     def _get_centrality_for_user(self, user):
