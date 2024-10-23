@@ -24,4 +24,3 @@ scikit-learn
 typing-extensions
 pydantic
 pillow
-git+https://github.com/user1342/easyLLM.git
