@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 import json
 import numpy as np
-
+import gc 
 # Assuming FeatureExtractor is imported correctly
 from Tribal.utils.feature_extractor import FeatureExtractor
 from Tribal.utils.config_manager import ConfigManager
+import pycuda.driver as cuda
+import pycuda.autoinit
 
 
 class PostObject(ABC):
@@ -239,7 +241,9 @@ This is a complex task with ethical implications. False positives can have serio
         )
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm._unload_model()
-
+        self._feature_extractor.llm.reset_dialogue()
+        gc()
+        cuda.Context.pop()
         self._operational = response["is_operational_planning"]
         return response["is_operational_planning"]
 
@@ -272,6 +276,9 @@ Response: 'Travel'"""
         )
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm._unload_model()
+        self._feature_extractor.llm.reset_dialogue()
+        gc.collect()
+        cuda.Context.pop()
 
         self._theme = response["theme"]
         return response["theme"]

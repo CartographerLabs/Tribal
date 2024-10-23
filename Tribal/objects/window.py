@@ -3,7 +3,11 @@ from Tribal.objects.user import UserObject
 from Tribal.utils.random_word import generate_random_name
 from Tribal.utils.window_feature_extractor import WindowFeatureExtractor
 from Tribal.objects.conversation import ConversationObject
-import json 
+import json
+import pycuda.driver as cuda
+import pycuda.autoinit
+import gc
+
 
 class WindowObject:
 
@@ -21,10 +25,12 @@ class WindowObject:
 
     _feature_extractor = None
 
-    def __init__(self, feature_extractor, posts, start_date, end_date, window_name=None):
+    def __init__(
+        self, feature_extractor, posts, start_date, end_date, window_name=None
+    ):
         if window_name is None:
             window_name = f"{generate_random_name()}-Tribe"
-        
+
         self._feature_extractor = feature_extractor
 
         self.window_name = window_name
@@ -44,8 +50,8 @@ class WindowObject:
         self._graph = self._window_feature_extractor.graph
         self._centralities = self._window_feature_extractor.centralities
         self._roles = self._window_feature_extractor.roles
-        self._extremism = self._window_feature_extractor.extremism   
-        
+        self._extremism = self._window_feature_extractor.extremism
+
         for username in unique_usernames:
             user = UserObject(self._feature_extractor)
             users_posts = [post for post in posts if post.username == username]
@@ -64,7 +70,7 @@ class WindowObject:
     @property
     def window_name(self):
         return self._window_name
-    
+
     @window_name.setter
     def window_name(self, name):
         self._window_name = name
@@ -72,7 +78,7 @@ class WindowObject:
     @property
     def start_date(self):
         return self._start_date
-    
+
     @start_date.setter
     def start_date(self, value):
         self._start_date = value
@@ -80,7 +86,7 @@ class WindowObject:
     @property
     def end_date(self):
         return self._end_date
-    
+
     @end_date.setter
     def end_date(self, value):
         self._end_date = value
@@ -107,7 +113,6 @@ class WindowObject:
         else:
             raise ValueError("Users should be a list")
 
-    
     @property
     def conversations(self):
         return self._conversations
@@ -132,16 +137,30 @@ Posts:
 """
 
         for post in self._posts:
-            prompt = prompt + "\n" + post.username +" : "+ post.post
-        
-        schema = json.dumps({f"role":"The role of People Leader, Leader Influencer, Engager Negator, Engager Supporter, Engager Neutral, Bystander, or NATTAC","rational":"the rational for why."})
-        schema_model = self._feature_extractor.llm.generate_pydantic_model_from_json_schema("Default", schema)
-        structured_prompt = self._feature_extractor.llm.generate_json_prompt(schema_model, prompt)
+            prompt = prompt + "\n" + post.username + " : " + post.post
+
+        schema = json.dumps(
+            {
+                f"role": "The role of People Leader, Leader Influencer, Engager Negator, Engager Supporter, Engager Neutral, Bystander, or NATTAC",
+                "rational": "the rational for why.",
+            }
+        )
+        schema_model = (
+            self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
+                "Default", schema
+            )
+        )
+        structured_prompt = self._feature_extractor.llm.generate_json_prompt(
+            schema_model, prompt
+        )
         response = self._feature_extractor.llm.ask_question(structured_prompt)
+        self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
+        gc.collect()
+        cuda.Context.pop()
+
         return response["role"]
 
-    
     def _get_extremism_for_user(self, user):
         prompt = f"""For user: '{user}' identify if their posts are extremist or non extremist. You are an expert in social media analysis for extremist content on social media. To follow is a block of social media text containing users and their related text. Based on the following definition please identify which users in the conversation are classified as extremist based on their content and provide your reasoning:
 Extremism is the promotion or advancement of an ideology based on violence, hatred or intolerance, that aims to:
@@ -153,16 +172,28 @@ Posts:
 """
 
         for post in self._posts:
-            prompt = prompt + "\n" + post.username +" : "+ post.post
-        
-       
-        schema = json.dumps({f"is_extremist":"A boolean on if user '{user}' posts are eextremist","rational":"the rational for why."})
-        schema_model = self._feature_extractor.llm.generate_pydantic_model_from_json_schema("Default", schema)
-        structured_prompt = self._feature_extractor.llm.generate_json_prompt(schema_model, prompt)
-        response = self._feature_extractor.llm.ask_question(structured_prompt)
-        self._feature_extractor.llm.reset_dialogue()
-        return response["is_extremist"]
+            prompt = prompt + "\n" + post.username + " : " + post.post
 
+        schema = json.dumps(
+            {
+                f"is_extremist": "A boolean on if user '{user}' posts are eextremist",
+                "rational": "the rational for why.",
+            }
+        )
+        schema_model = (
+            self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
+                "Default", schema
+            )
+        )
+        structured_prompt = self._feature_extractor.llm.generate_json_prompt(
+            schema_model, prompt
+        )
+        response = self._feature_extractor.llm.ask_question(structured_prompt)
+        self._feature_extractor.llm._unload_model()
+        self._feature_extractor.llm.reset_dialogue()
+        gc.collect()
+        cuda.Context.pop()
+        return response["is_extremist"]
 
     def _get_centrality_for_user(self, user):
         return self._centralities[user]
@@ -200,13 +231,15 @@ Posts:
                         if conversation_post_id == reply_to:
                             conversation.append(post_object)
                             added_to_convo = True
-                
-            if not added_to_convo: 
+
+            if not added_to_convo:
                 latest_convo = conversations[-1]
                 latest_message = latest_convo[-1]
                 latest_message_post_time = latest_message.time
 
-                is_same_convo = self._is_time_difference_within(latest_message_post_time, time)
+                is_same_convo = self._is_time_difference_within(
+                    latest_message_post_time, time
+                )
                 if is_same_convo:
                     conversations[-1].append(post_object)
                 else:
@@ -214,7 +247,9 @@ Posts:
 
         self.conversations = []
         for convo_thread_posts in conversations:
-            self.conversations.append(ConversationObject(self._feature_extractor, convo_thread_posts))
+            self.conversations.append(
+                ConversationObject(self._feature_extractor, convo_thread_posts)
+            )
 
     def get_dict(self):
         data_dict = {
@@ -226,13 +261,13 @@ Posts:
                     "role": user.role,
                     "extremism": user.extremism,
                     "avrg_sentiment": user.avrg_sentiment,
-                    "avrg_toxicity": user.avrg_toxicity
-                } 
+                    "avrg_toxicity": user.avrg_toxicity,
+                }
                 for user in self.users
             ],
             "conversations": [obj.get_dict() for obj in self.conversations],
             "start_date": self.start_date.strftime("%Y-%m-%d"),
-            "end_date": self._end_date.strftime("%Y-%m-%d")
-        }        
+            "end_date": self._end_date.strftime("%Y-%m-%d"),
+        }
 
         return data_dict

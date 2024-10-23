@@ -3,13 +3,17 @@ from turtle import pos
 from sympy import use
 from Tribal.objects import user
 import networkx as nx
-import re 
+import re
 from datetime import datetime
-import json 
+import json
+import pycuda.driver as cuda
+import pycuda.autoinit
 
 from Tribal.objects.user import UserObject
 from Tribal.utils.window_feature_extractor import WindowFeatureExtractor
-class ConversationObject():
+
+
+class ConversationObject:
 
     _posts = None
     _graph = None
@@ -29,36 +33,38 @@ class ConversationObject():
 
     def _initialise(self):
         self._window_feature_extractor = WindowFeatureExtractor(self.posts)
-        
+
         self._centralities = self._window_feature_extractor.centralities
         self._roles = self._window_feature_extractor.roles
         self._extremism = self._window_feature_extractor.extremism
 
-        self._start_time, self._end_time = min(post.time for post in self.posts), max(post.time for post in self.posts)
+        self._start_time, self._end_time = min(post.time for post in self.posts), max(
+            post.time for post in self.posts
+        )
 
-        self._update_users() 
+        self._update_users()
         self._graph = self._window_feature_extractor.graph
 
     @property
     def start_time(self):
         return self._start_time
-    
+
     @start_time.setter
     def start_time(self, value):
-        self._start_time = value 
+        self._start_time = value
 
     @property
     def end_time(self):
         return self._end_time
-    
+
     @end_time.setter
     def end_time(self, value):
-        self._end_time = value        
+        self._end_time = value
 
     @property
     def graph(self):
         return self._graph
-    
+
     @graph.setter
     def graph(self, value):
         self._graph = value
@@ -71,7 +77,7 @@ class ConversationObject():
     def posts(self, value):
         self._posts = value
 
-    @property 
+    @property
     def users(self):
         return self._users
 
@@ -125,17 +131,31 @@ Posts:
 """
 
         for post in self._posts:
-            prompt = prompt + "\n" + post.username +" : "+ post.post
-        
-        schema = json.dumps({f"role":"The role of People Leader, Leader Influencer, Engager Negator, Engager Supporter, Engager Neutral, Bystander, or NATTAC","rational":"the rational for why."})
-        schema_model = self._feature_extractor.llm.generate_pydantic_model_from_json_schema("Default", schema)
-        structured_prompt = self._feature_extractor.llm.generate_json_prompt(schema_model, prompt)
+            prompt = prompt + "\n" + post.username + " : " + post.post
+
+        schema = json.dumps(
+            {
+                f"role": "The role of People Leader, Leader Influencer, Engager Negator, Engager Supporter, Engager Neutral, Bystander, or NATTAC",
+                "rational": "the rational for why.",
+            }
+        )
+        schema_model = (
+            self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
+                "Default", schema
+            )
+        )
+        structured_prompt = self._feature_extractor.llm.generate_json_prompt(
+            schema_model, prompt
+        )
         response = self._feature_extractor.llm.ask_question(structured_prompt)
+        self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
+        gc.collect()
+        cuda.Context.pop()
+
         print(response)
         return response["role"]
 
-    
     def _get_extremism_for_user(self, user):
         prompt = f"""For user: '{user}' identify if their posts are extremist or non extremist. You are an expert in social media analysis for extremist content on social media. To follow is a block of social media text containing users and their related text. Based on the following definition please identify which users in the conversation are classified as extremist based on their content and provide your reasoning:
 Extremism is the promotion or advancement of an ideology based on violence, hatred or intolerance, that aims to:
@@ -147,15 +167,28 @@ Posts:
 """
 
         for post in self._posts:
-            prompt = prompt + "\n" + post.username +" : "+ post.post
-        
-       
-        schema = json.dumps({f"is_extremist":"A boolean on if user '{user}' posts are eextremist","rational":"the rational for why."})
-        schema_model = self._feature_extractor.llm.generate_pydantic_model_from_json_schema("Default", schema)
-        structured_prompt = self._feature_extractor.llm.generate_json_prompt(schema_model, prompt)
+            prompt = prompt + "\n" + post.username + " : " + post.post
+
+        schema = json.dumps(
+            {
+                f"is_extremist": "A boolean on if user '{user}' posts are eextremist",
+                "rational": "the rational for why.",
+            }
+        )
+        schema_model = (
+            self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
+                "Default", schema
+            )
+        )
+        structured_prompt = self._feature_extractor.llm.generate_json_prompt(
+            schema_model, prompt
+        )
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         print(response)
+        self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
+        gc.collect()
+        cuda.Context.pop()
         return response["is_extremist"]
 
     def _get_centrality_for_user(self, user):
@@ -163,11 +196,11 @@ Posts:
 
     def get_dict(self):
         data_dict = {
-            "posts":[data.get_dict() for data in self.posts],
-            "graph":f"{self.graph.nodes()}-{self.graph.edges()}",
+            "posts": [data.get_dict() for data in self.posts],
+            "graph": f"{self.graph.nodes()}-{self.graph.edges()}",
             "users": [data.get_dict() for data in self.users],
             "start_time": self._start_time.strftime("%Y-%m-%d"),
-            "end_time":self._end_time.strftime("%Y-%m-%d")
+            "end_time": self._end_time.strftime("%Y-%m-%d"),
         }
 
         return data_dict
