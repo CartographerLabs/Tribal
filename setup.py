@@ -12,11 +12,12 @@ other_requirements = [req for req in requirements if not req.startswith('git+')]
 # Install Git dependencies manually
 if git_requirements:
     for req in git_requirements:
+        print(f"Installing {req}")
         subprocess.check_call(['pip', 'install', req])
 
 setup(
     name="Tribal",
-    version="0.25",
+    version="0.26",
     packages=find_packages(),
     # Optional metadata
     author="James Stevenson",
