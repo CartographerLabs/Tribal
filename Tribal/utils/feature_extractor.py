@@ -18,7 +18,7 @@ from collections import Counter
 from nltk import pos_tag
 from nrclex import NRCLex
 from sklearn.feature_extraction.text import TfidfVectorizer
-from Tribal.utils.easy_llm import EasyLLM
+from easyLLM.easyLLM import EasyLLM
 import gc
 
 # Ensure GPU is available
