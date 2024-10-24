@@ -17,7 +17,7 @@ if git_requirements:
 
 setup(
     name="Tribal",
-    version="0.32",
+    version="0.33",
     packages=find_packages(),
     # Optional metadata
     author="James Stevenson",
