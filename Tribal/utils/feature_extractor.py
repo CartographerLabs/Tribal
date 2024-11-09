@@ -23,43 +23,6 @@ import gc
 # Ensure GPU is available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Define Dataset class for loading data
-class ExtremistDataset(Dataset):
-    def __init__(self, texts, labels, tokenizer=None, word2vec_model=None, use_word2vec=False):
-        self.texts = texts
-        self.labels = labels
-        self.tokenizer = tokenizer
-        self.word2vec_model = word2vec_model
-        self.use_word2vec = use_word2vec
-
-    def __len__(self):
-        return len(self.texts)
-
-    def __getitem__(self, idx):
-        text = self.texts[idx]
-        label = self.labels[idx]
-        
-        if self.use_word2vec:
-            tokens = text.lower().split()
-            embeddings = [self.word2vec_model.wv[token] for token in tokens if token in self.word2vec_model.wv]
-            if not embeddings:
-                embeddings = [np.zeros(self.word2vec_model.vector_size)]
-            embeddings = torch.tensor(embeddings, dtype=torch.float)
-            return embeddings, label
-        else:
-            inputs = self.tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
-            inputs = {key: val.squeeze(0) for key, val in inputs.items()}
-            inputs['labels'] = torch.tensor(label, dtype=torch.long)
-            return inputs
-
-# Custom collate function for DataLoader
-def collate_fn(batch):
-    embeddings = [item[0] for item in batch]
-    labels = torch.tensor([item[1] for item in batch], dtype=torch.long)
-    lengths = torch.tensor([len(x) for x in embeddings], dtype=torch.long)
-    embeddings_padded = torch.nn.utils.rnn.pad_sequence(embeddings, batch_first=True)
-    return embeddings_padded, labels, lengths
-
 # FeatureExtractor class
 class FeatureExtractor:
     VECTOR_SIZE = 100
