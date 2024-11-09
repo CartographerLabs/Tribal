@@ -245,7 +245,11 @@ This is a complex task with ethical implications. False positives can have serio
         gc.collect()
         torch.cuda.empty_cache()
 
-        self._operational = response["is_operational_planning"]
+        try:
+            self._operational = response["is_operational_planning"]
+        except KeyError as e:
+            return self.operational()
+            
         return response["is_operational_planning"]
 
     @property
@@ -281,8 +285,11 @@ Response: 'Travel'"""
         gc.collect()
         torch.cuda.empty_cache()
 
+        try:
+            self._theme = response["theme"]
+        except KeyError as e:
+            return self.theme()
 
-        self._theme = response["theme"]
         return response["theme"]
 
     ##################
