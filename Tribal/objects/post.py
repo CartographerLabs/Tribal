@@ -205,11 +205,7 @@ class PostObject(ABC):
             self._text_vector = self._feature_extractor.get_text_vector(self.post)
         return self._text_vector
 
-    @property
-    def operational(self):
-        if self._operational:
-            return self._operational
-
+    def get_is_operational(self):
         prompt = """
         As an AI model, you are tasked with analyzing social media posts to detect and classify online behaviors associated with operational planning for extremist mobilization. Your primary goal is to identify whether the post contains signals that suggest a likelihood of transitioning from radicalized beliefs to actionable planning. Based on the framework from “Online Signals of Extremist Mobilization”, evaluate the post and address the following:
         
@@ -240,10 +236,10 @@ class PostObject(ABC):
         - **Minimize Bias**: Avoid basing decisions solely on ideology. Focus on behaviors associated with mobilization processes, as defined in the study.
         - **Ethical Awareness**: Recognize that false positives can have serious impacts; use this classification to support, not replace, investigative methods.
         """
-
+        
         
         prompt = prompt + "\n Post: " + self.post
-
+        
         response_schema = json.dumps(
             {
                 "is_operational_planning": "One-word response: 'none', 'weak', 'moderate', 'strong', or 'extreme'.",
@@ -258,28 +254,31 @@ class PostObject(ABC):
         structured_prompt = self._feature_extractor.llm.generate_json_prompt(
             schema_model, prompt
         )
-
+        
         print(structured_prompt)
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
         torch.cuda.empty_cache()
-
+        
         try:
             is_op = response["is_operational_planning"]
             self._operational = is_op
         except KeyError as e:
-            return self.operational()
+            return self.get_is_operational()
             
         return response["is_operational_planning"]
-
+          
     @property
-    def theme(self):
+    def operational(self):
+        if self._operational:
+            return self._operational
 
-        if self._theme:
-            return self._theme
+       return self.get_is_operational()
 
+    def get_theme():
+ 
         prompt = """
         You are given a social media post. Identify the primary theme or topic of the post in one word. Your response should focus on the most prominent subject or sentiment conveyed, capturing the main idea in broad terms.
         
@@ -336,9 +335,16 @@ class PostObject(ABC):
             extracted_theme = response["theme"]
             self._theme = extracted_theme
         except KeyError as e:
-            return self.theme()
+            return self.get_theme()
 
-        return response["theme"]
+        return response["theme"]       
+
+    @property
+    def theme(self):
+
+        if self._theme:
+            return self._theme
+        return self.get_theme()
 
     ##################
 
