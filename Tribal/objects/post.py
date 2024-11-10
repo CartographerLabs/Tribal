@@ -258,6 +258,8 @@ class PostObject(ABC):
         structured_prompt = self._feature_extractor.llm.generate_json_prompt(
             schema_model, prompt
         )
+
+        print(structured_prompt)
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
@@ -321,6 +323,8 @@ class PostObject(ABC):
         structured_prompt = self._feature_extractor.llm.generate_json_prompt(
             schema_model, prompt
         )
+
+        print(structured_prompt)
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
