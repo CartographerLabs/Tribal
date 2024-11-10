@@ -141,7 +141,7 @@ Posts:
         schema = json.dumps(
             {
                 f"role": "The role of 'People Leader', 'Leader Influencer', 'Engager Negator', 'Engager Supporter', 'Engager Neutral', 'Bystander', or 'NATTAC' for user {user}.",
-                "rational": "the rational for why.",
+                "rational": "the rational for why you have made this decision.",
             }
         )
         schema_model = (
@@ -152,6 +152,8 @@ Posts:
         structured_prompt = self._feature_extractor.llm.generate_json_prompt(
             schema_model, prompt
         )
+
+        print(structured_prompt)
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
@@ -181,7 +183,7 @@ Posts:
         schema = json.dumps(
             {
                 f"is_extremist": "A boolean ('true' or 'false') on if user {user}'s posts are extremist",
-                "rational": "the rational for why.",
+                "rational": "the rational for why you have made this decision.",
             }
         )
         schema_model = (
@@ -192,6 +194,8 @@ Posts:
         structured_prompt = self._feature_extractor.llm.generate_json_prompt(
             schema_model, prompt
         )
+
+        print(structured_prompt)
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
