@@ -238,7 +238,7 @@ class PostObject(ABC):
 
         # Define the JSON schema as a Python dictionary
         response_schema = {
-            "status": ["correct", "false", "unknown"],
+            "status": "'correct', 'false', or 'unknown'",
              "justification": "A brief explanation supporting the selected status, explaining why the post is correct, false, or unknown based on factual information or ambiguity."
             }
 
