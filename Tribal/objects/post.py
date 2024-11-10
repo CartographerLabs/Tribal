@@ -267,7 +267,8 @@ class PostObject(ABC):
         torch.cuda.empty_cache()
 
         try:
-            self._operational = response["is_operational_planning"]
+            is_op = response["is_operational_planning"]
+            self._operational = is_op
         except KeyError as e:
             return self.operational()
             
@@ -332,7 +333,8 @@ class PostObject(ABC):
         torch.cuda.empty_cache()
 
         try:
-            self._theme = response["theme"]
+            extracted_theme = = response["theme"]
+            self._theme = extracted_theme
         except KeyError as e:
             return self.theme()
 
