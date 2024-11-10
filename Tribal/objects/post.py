@@ -238,20 +238,9 @@ class PostObject(ABC):
 
         # Define the JSON schema as a Python dictionary
         response_schema = {
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string",
-                    "enum": ["correct", "false", "unknown"],
-                    "description": "Assessment of the factual accuracy of the social media post."
-                },
-                "justification": {
-                    "type": "string",
-                    "description": "A brief explanation supporting the selected status, explaining why the post is correct, false, or unknown based on factual information or ambiguity."
-                }
-            },
-            "required": ["status", "justification"]
-        }
+            "status": ["correct", "false", "unknown"],
+             "justification": "A brief explanation supporting the selected status, explaining why the post is correct, false, or unknown based on factual information or ambiguity."
+            }
 
         prompt = prompt + "\n Post: " + self.post
 
