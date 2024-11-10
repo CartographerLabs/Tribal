@@ -42,6 +42,7 @@ class UserObject(ABC):
         sentiment_scores = []
         toxicity_scores = []
         is_operational_scores = []
+        correctness_scores = []
         theme_values = []
         capital_letter_freqs = []
         pos_counts_list = []
@@ -71,6 +72,7 @@ class UserObject(ABC):
             toxicity_scores.append(post_object.toxicity["toxicity"])
             sentiment_scores.append(post_object.sentiment["compound"])
             is_operational_scores.append(post_object.operational)
+            correctness_scores.append(post_object.correctness)
             theme_values.append(post_object.theme)
             capital_letter_freqs.append(post_object.capital_letter_word_frequency)
             pos_counts_list.append(post_object.pos_counts)
@@ -99,6 +101,11 @@ class UserObject(ABC):
         self._avrg_theme = (
             max(theme_values, key=theme_values.count)
             if theme_values else None
+        )
+
+        self._avrg_correctness = (
+            max(correctness_scores, key=correctness_scores.count)
+            if correctness_scores else None
         )
 
         # Aggregate POS counts
@@ -220,6 +227,7 @@ class UserObject(ABC):
                 "avrg_sentiment": self.avrg_sentiment,
                 "avrg_toxicity": self.avrg_toxicity,
                 "avrg_is_operational": self.avrg_is_operational,
+                "avrg_correctness":self._avrg_correctness,
                 "avrg_theme": self.avrg_theme,
                 "avrg_capital_letter_word_frequency": self.avrg_capital_letter_word_frequency,
                 "avrg_pos_counts": self.avrg_pos_counts,
