@@ -275,9 +275,9 @@ class PostObject(ABC):
         if self._operational:
             return self._operational
 
-       return self.get_is_operational()
+        return self.get_is_operational()
 
-    def get_theme():
+    def get_theme(self):
  
         prompt = """
         You are given a social media post. Identify the primary theme or topic of the post in one word. Your response should focus on the most prominent subject or sentiment conveyed, capturing the main idea in broad terms.
