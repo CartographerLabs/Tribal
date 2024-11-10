@@ -333,7 +333,7 @@ class PostObject(ABC):
         torch.cuda.empty_cache()
 
         try:
-            extracted_theme = = response["theme"]
+            extracted_theme = response["theme"]
             self._theme = extracted_theme
         except KeyError as e:
             return self.theme()
