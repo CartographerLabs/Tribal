@@ -135,8 +135,8 @@ Posts:
 
         schema = json.dumps(
             {
-                f"role": "The role of People Leader, Leader Influencer, Engager Negator, Engager Supporter, Engager Neutral, Bystander, or NATTAC",
-                "rational": "the rational for why.",
+                f"role": "The role of 'People Leader', 'Leader Influencer', 'Engager Negator', 'Engager Supporter', 'Engager Neutral', 'Bystander', or 'NATTAC' for user {user}.",
+                "rational": "the rational for why you have made this decision.",
             }
         )
         schema_model = (
@@ -147,14 +147,19 @@ Posts:
         structured_prompt = self._feature_extractor.llm.generate_json_prompt(
             schema_model, prompt
         )
+
+        print(structured_prompt)
         response = self._feature_extractor.llm.ask_question(structured_prompt)
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
         torch.cuda.empty_cache()
 
+        try:
+            role = response["role"]
+        except KeyError as e:
+            return self._get_role_for_user(user)
 
-        print(response)
         return response["role"]
 
     def _get_extremism_for_user(self, user):
@@ -172,8 +177,8 @@ Posts:
 
         schema = json.dumps(
             {
-                f"is_extremist": "A boolean on if user '{user}' posts are eextremist",
-                "rational": "the rational for why.",
+                f"is_extremist": "A boolean ('true' or 'false') on if user {user}'s posts are extremist",
+                "rational": "the rational for why you have made this decision.",
             }
         )
         schema_model = (
@@ -184,12 +189,18 @@ Posts:
         structured_prompt = self._feature_extractor.llm.generate_json_prompt(
             schema_model, prompt
         )
+
+        print(structured_prompt)
         response = self._feature_extractor.llm.ask_question(structured_prompt)
-        print(response)
         self._feature_extractor.llm._unload_model()
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
         torch.cuda.empty_cache()
+
+        try:
+            extremism = response["is_extremist"]
+        except KeyError as e:
+            return self._get_extremism_for_user(user)
 
         return response["is_extremist"]
 

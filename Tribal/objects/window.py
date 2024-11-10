@@ -57,8 +57,6 @@ class WindowObject:
             user.posts = users_posts
             user.username = username
             user.centrality = self._get_centrality_for_user(username)
-            user.role = self._get_role_for_user(username)
-            user.extremism = self._get_extremism_for_user(username)
 
             list_of_user_objects.append(user)
 
@@ -119,95 +117,6 @@ class WindowObject:
     @conversations.setter
     def conversations(self, value):
         self._conversations = value
-
-    def _get_role_for_user(self, user):
-        prompt = f"""For user: '{user}' identify their role in the conversation. You are an expert in social media analysis amongst user roles on social media. Given the following block of social media content, your task is to define the (most apparent) role of each user based on the following categories/definitions.
- 
-If a user is identified as performing behaviour that falls into multiple roles, then, in order, the following roles take priority:
-People Leader: Directs, recruits and mobilises block members either virtually or in the real world.
-Leader Influencer: Directs the conversation as a knowledge source and/or gatekeeper, with other members reflecting their attitudes.
-Engager Negator: Negative or berating interactions in an attempt to reduce discussion or offer a counter argument against a fundamental principle groups agreement.
-Engager Supporter: Positively interacts with the topic, encouraging or promoting future further discussion and ideological success.
-Engager Neutral: Neutral topic interaction to learn or socially interact with members.
-Bystander: Does not engage with the main discussion but remains within the discussion block.
-NATTC: The user is at the beginning or end of a block (outside of the time boxed discussion) discussing a topic that the content is not engaged with.
-
-Posts:
-"""
-
-        for post in self._posts:
-            prompt = prompt + "\n" + post.username + " : " + post.post
-
-        schema = json.dumps(
-            {
-                f"role": "The role of 'People Leader', 'Leader Influencer', 'Engager Negator', 'Engager Supporter', 'Engager Neutral', 'Bystander', or 'NATTAC' for user {user}.",
-                "rational": "the rational for why you have made this decision.",
-            }
-        )
-        schema_model = (
-            self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
-                "Default", schema
-            )
-        )
-        structured_prompt = self._feature_extractor.llm.generate_json_prompt(
-            schema_model, prompt
-        )
-
-        print(structured_prompt)
-        response = self._feature_extractor.llm.ask_question(structured_prompt)
-        self._feature_extractor.llm._unload_model()
-        self._feature_extractor.llm.reset_dialogue()
-        gc.collect()
-        torch.cuda.empty_cache()
-
-        try:
-            role = response["role"]
-        except KeyError as e:
-            return self._get_role_for_user(user)
-
-        return response["role"]
-
-    def _get_extremism_for_user(self, user):
-        prompt = f"""For user: '{user}' identify if their posts are extremist or non extremist. You are an expert in social media analysis for extremist content on social media. To follow is a block of social media text containing users and their related text. Based on the following definition please identify which users in the conversation are classified as extremist based on their content and provide your reasoning:
-Extremism is the promotion or advancement of an ideology based on violence, hatred or intolerance, that aims to:
-1.  negate or destroy the fundamental rights and freedoms of others; or
-2.  undermine, overturn or replace the UK’s system of liberal parliamentary democracy and democratic rights; or
-3.  intentionally create a permissive environment for others to achieve the results in (1) or (2).
-
-Posts:
-"""
-
-        for post in self._posts:
-            prompt = prompt + "\n" + post.username + " : " + post.post
-
-        schema = json.dumps(
-            {
-                f"is_extremist": "A boolean ('true' or 'false') on if user {user}'s posts are extremist",
-                "rational": "the rational for why you have made this decision.",
-            }
-        )
-        schema_model = (
-            self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
-                "Default", schema
-            )
-        )
-        structured_prompt = self._feature_extractor.llm.generate_json_prompt(
-            schema_model, prompt
-        )
-
-        print(structured_prompt)
-        response = self._feature_extractor.llm.ask_question(structured_prompt)
-        self._feature_extractor.llm._unload_model()
-        self._feature_extractor.llm.reset_dialogue()
-        gc.collect()
-        torch.cuda.empty_cache()
-
-        try:
-            extremism = response["role"]
-        except KeyError as e:
-            return self._get_extremism_for_user(user)
-
-        return response["is_extremist"]
 
     def _get_centrality_for_user(self, user):
         return self._centralities[user]
