@@ -157,7 +157,7 @@ Posts:
 
         try:
             role = response["role"]
-        except KeyError as e:
+        except:
             return self._get_role_for_user(user)
 
         return response["role"]
@@ -199,7 +199,7 @@ Posts:
 
         try:
             extremism = response["is_extremist"]
-        except KeyError as e:
+        except:
             return self._get_extremism_for_user(user)
 
         return response["is_extremist"]

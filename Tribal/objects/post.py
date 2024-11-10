@@ -264,7 +264,7 @@ class PostObject(ABC):
         try:
             is_op = response["status"]
             self._correctness = is_op
-        except KeyError as e:
+        except:
             return self.eval_correctness()
             
         return response["status"]
@@ -337,7 +337,7 @@ class PostObject(ABC):
         try:
             is_op = response["is_operational_planning"]
             self._operational = is_op
-        except KeyError as e:
+        except:
             return self.get_is_operational()
             
         return response["is_operational_planning"]
@@ -406,7 +406,7 @@ class PostObject(ABC):
         try:
             extracted_theme = response["theme"]
             self._theme = extracted_theme
-        except KeyError as e:
+        except:
             return self.get_theme()
 
         return response["theme"]       
