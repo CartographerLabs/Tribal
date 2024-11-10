@@ -210,25 +210,44 @@ class PostObject(ABC):
         if self._operational:
             return self._operational
 
-        prompt = """You are an AI assistant tasked with analysing social media posts to identify content related to operational planning for extremist activities. Using the information from the research paper "Online Signals of Extremist Mobilization" and the rules established in our previous conversation, evaluate the given text and answer the following:1.
-Does the post contain any keywords or phrases related to violent action? If so, what are they? Consider terms like "terrorist", "gun", "attack", "punch", "police", or any other language that suggests violence or harm.2.
-Are there any indicators that the user is seeking to acquire knowledge or skills related to carrying out violence? Look for signs of the user attempting to learn about weapons, tactics, operational security, or ways to evade law enforcement.3.
-Does the post include discussion about logistics, timelines, specific targets, or coordination with others? Identify any mentions of arranging meetups, planning travel, or sharing maps and schedules.4.
-Does the text contain any "leakage" where the user might be unintentionally revealing their intentions or plans? Look for seemingly offhand remarks about future actions, boasts about capabilities, or expressions of being ready to act.5.
-Assess the overall tone and emotional intensity of the post. Are there excessive punctuation marks, strong expressions of anger or excitement, or a sense of urgency that could indicate an individual is close to taking action?
-Based on your analysis of these five points, provide a final assessment of whether the post exhibits strong, moderate, weak, or no signs of operational planning for extremist activities. Explain your reasoning, citing specific examples from the text and referencing the research paper where applicable.
-Important Considerations:●
-Context is key. Analyse the language and content in relation to the user's online activity, group affiliations, and any known offline behaviour.●
-Avoid bias. Do not base your assessment solely on the user's ideology or group affiliation. Focus on the specific content and behaviours exhibited in the post.●
-This is a complex task with ethical implications. False positives can have serious consequences. Emphasize that this is a tool for triaging data and should be used in conjunction with other investigative methods.
-"""
+        prompt = """
+        As an AI model, you are tasked with analyzing social media posts to detect and classify online behaviors associated with operational planning for extremist mobilization. Your primary goal is to identify whether the post contains signals that suggest a likelihood of transitioning from radicalized beliefs to actionable planning. Based on the framework from “Online Signals of Extremist Mobilization”, evaluate the post and address the following:
+        
+        1. **Language of Violent Action**: Does the post contain keywords or themes associated with preparing for violence? Identify terms indicating intent to harm, such as "weapons," "target," "attack," or "security" that may align with operational planning rather than ideology alone.
+           - *Example*: "Planning to gather supplies for the mission; anyone have resources for building what we need?"
+           - *Example*: "I've got the target location mapped out; just need a few more volunteers."
+        
+        2. **Knowledge Acquisition and Capability**: Are there signs that the user is acquiring skills or resources necessary for violent actions? Look for indicators of users seeking knowledge on tactics, weapon acquisition, operational security, or techniques for evading law enforcement—aligning with capabilities that support mobilization.
+           - *Example*: "Anyone have experience with encrypted communication methods? Need to secure our plans."
+           - *Example*: "Looking for a reliable source for tactical gear and training manuals."
+        
+        3. **Logistics and Coordination**: Does the content reference logistical planning, including specifics about timing, locations, targets, or collaborative efforts? This may include discussions about coordinating with others, arranging meetups, gathering supplies, or planning routes, which indicate preparation.
+           - *Example*: "We’ll meet at the south entrance at 8 PM—don’t bring phones or anything traceable."
+           - *Example*: "Got the route mapped out; sharing the link in a private group."
+        
+        4. **“Leakage” of Intentions**: Identify any unintended or indirect revelations of the user's plans or intentions. This may include expressions that hint at readiness for action, capability boasts, or discussing future steps in a way that goes beyond expressing ideology.
+           - *Example*: "Soon, they’ll see what we’re capable of—no more waiting around."
+           - *Example*: "We’ve been prepping for months, and everything is set for the day."
+        
+        5. **Tone and Intensity Indicators**: Assess the post for heightened emotional cues, such as excessive punctuation or expressions of urgency, anger, or excitement that may signal increased readiness or psychological escalation toward action.
+           - *Example*: "This is it!! No more talk—time for action!!!"
+           - *Example*: "We have no time left, everyone needs to be ready NOW."
+        
+        **Final Classification**: Based on the criteria above, classify the post as exhibiting “none,” “weak,” “moderate,” “strong,” or “extreme” indicators of mobilization for extremist operational planning. Support your assessment with examples from the post, referencing specific criteria from “Online Signals of Extremist Mobilization”.
+        
+        **Key Considerations**:
+        - **Contextual Analysis**: Evaluate the language and behaviors within the broader context of the user’s online history and affiliations.
+        - **Minimize Bias**: Avoid basing decisions solely on ideology. Focus on behaviors associated with mobilization processes, as defined in the study.
+        - **Ethical Awareness**: Recognize that false positives can have serious impacts; use this classification to support, not replace, investigative methods.
+        """
 
-        prompt = prompt + "post: " + self.post
+        
+        prompt = prompt + "\n Post: " + self.post
 
         response_schema = json.dumps(
             {
-                "is_operational_planning": "single word response on if the post contains strong, medium, weak, or no operational planning",
-                "reasoning": "Your reasoning for why the post contains that degree of operational planning",
+                "is_operational_planning": "One-word response: 'none', 'weak', 'moderate', 'strong', or 'extreme'.",
+                "reasoning": "Detailed explanation of the post's classification, with relevant examples and references to mobilization indicators",
             }
         )
         schema_model = (
@@ -258,16 +277,39 @@ This is a complex task with ethical implications. False positives can have serio
         if self._theme:
             return self._theme
 
-        prompt = """Given the following social media post, identify the main theme or topic of the content in one word. Focus on the most prominent subject being discussed or conveyed."
+        prompt = """
+        You are given a social media post. Identify the primary theme or topic of the post in one word. Your response should focus on the most prominent subject or sentiment conveyed, capturing the main idea in broad terms.
+        
+        When selecting the topic, avoid specific details or minor points. Aim for general categories that summarize the post's main content, such as 'Travel,' 'Health,' 'Food,' 'Technology,' etc.
+        
+        Examples:
+        
+        Post: 'Excited to visit the beach this weekend and enjoy some sunshine!'
+        Response: 'Travel'
+        
+        Post: 'Just had the most amazing pasta dinner at my favorite restaurant!'
+        Response: 'Food'
+        
+        Post: 'Feeling grateful for my family and friends today.'
+        Response: 'Gratitude'
+        
+        Post: 'Just finished my workout, feeling strong and ready to tackle the day!'
+        Response: 'Fitness'
+        
+        Post: 'Can’t believe the prices at the grocery store lately, everything is so expensive!'
+        Response: 'Economy'
+        
+        Post: 'Watching the latest Marvel movie, the effects are mind-blowing!'
+        Response: 'Entertainment'
+        
+        Focus on selecting a single word that best captures the main theme of the post.
+        """
 
-Example: Post: 'Excited to visit the beach this weekend and enjoy some sunshine!'
-Response: 'Travel'"""
-
-        prompt = prompt + "post: " + self.post
+        prompt = prompt + "\n Post: " + self.post
 
         response_schema = json.dumps(
             {
-                "theme": "single word response on the theme/ topic of the post",
+                "theme": "One-word response on the theme/ topic of the post",
                 "reasoning": "A short summary of your reasoning",
             }
         )
