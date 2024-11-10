@@ -140,7 +140,7 @@ Posts:
 
         schema = json.dumps(
             {
-                f"role": "The role of People Leader, Leader Influencer, Engager Negator, Engager Supporter, Engager Neutral, Bystander, or NATTAC",
+                f"role": "The role of 'People Leader', 'Leader Influencer', 'Engager Negator', 'Engager Supporter', 'Engager Neutral', 'Bystander', or 'NATTAC' for user {user}.",
                 "rational": "the rational for why.",
             }
         )
@@ -157,6 +157,11 @@ Posts:
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
         torch.cuda.empty_cache()
+
+        try:
+            role = response["role"]
+        except KeyError as e:
+            return self._get_role_for_user(user)
 
         return response["role"]
 
@@ -175,7 +180,7 @@ Posts:
 
         schema = json.dumps(
             {
-                f"is_extremist": "A boolean on if user '{user}' posts are eextremist",
+                f"is_extremist": "A boolean ('true' or 'false') on if user {user}'s posts are extremist",
                 "rational": "the rational for why.",
             }
         )
@@ -192,6 +197,11 @@ Posts:
         self._feature_extractor.llm.reset_dialogue()
         gc.collect()
         torch.cuda.empty_cache()
+
+        try:
+            extremism = response["role"]
+        except KeyError as e:
+            return self._get_extremism_for_user(user)
 
         return response["is_extremist"]
 
