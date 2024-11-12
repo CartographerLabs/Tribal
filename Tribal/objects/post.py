@@ -207,6 +207,9 @@ class PostObject(ABC):
         return self._text_vector
 
     def eval_correctness(self):
+        if self.post == "":
+            return "unknown"
+        
         try:
             prompt = """
             You will analyze social media posts to assess their factual correctness. For each post, evaluate whether the information presented is:
@@ -282,6 +285,10 @@ class PostObject(ABC):
         return self.eval_correctness()
 
     def get_is_operational(self):
+
+        if self.post == "":
+            return "unknown"
+
         try:
             prompt = """
             As an AI model, you are tasked with analyzing social media posts to detect and classify online behaviors associated with operational planning for extremist mobilization. Your primary goal is to identify whether the post contains signals that suggest a likelihood of transitioning from radicalized beliefs to actionable planning. Based on the framework from “Online Signals of Extremist Mobilization”, evaluate the post and address the following:
