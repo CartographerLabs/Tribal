@@ -202,7 +202,7 @@ class ConversationObject:
             gc.collect()
             torch.cuda.empty_cache()
     
-                extremism = response["is_extremist"]
+            extremism = response["is_extremist"]
         except:
             gc.collect()
             torch.cuda.empty_cache()

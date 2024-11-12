@@ -341,6 +341,7 @@ class PostObject(ABC):
             
             is_op = response["is_operational_planning"]
             self._operational = is_op
+        
         except:
             gc.collect()
             torch.cuda.empty_cache()
@@ -358,63 +359,67 @@ class PostObject(ABC):
         return self.get_is_operational()
 
     def get_theme(self):
- 
-        prompt = """
-        You are given a social media post. Identify the primary theme or topic of the post in one word. Your response should focus on the most prominent subject or sentiment conveyed, capturing the main idea in broad terms.
-        
-        When selecting the topic, avoid specific details or minor points. Aim for general categories that summarize the post's main content, such as 'Travel,' 'Health,' 'Food,' 'Technology,' etc.
-        
-        Examples:
-        
-        Post: 'Excited to visit the beach this weekend and enjoy some sunshine!'
-        Response: 'Travel'
-        
-        Post: 'Just had the most amazing pasta dinner at my favorite restaurant!'
-        Response: 'Food'
-        
-        Post: 'Feeling grateful for my family and friends today.'
-        Response: 'Gratitude'
-        
-        Post: 'Just finished my workout, feeling strong and ready to tackle the day!'
-        Response: 'Fitness'
-        
-        Post: 'Can’t believe the prices at the grocery store lately, everything is so expensive!'
-        Response: 'Economy'
-        
-        Post: 'Watching the latest Marvel movie, the effects are mind-blowing!'
-        Response: 'Entertainment'
-        
-        Focus on selecting a single word that best captures the main theme of the post.
-        """
-
-        prompt = prompt + "\n Post: " + self.post
-
-        response_schema = json.dumps(
-            {
-                "theme": "One-word response on the theme/ topic of the post",
-                "reasoning": "A short summary of your reasoning",
-            }
-        )
-        schema_model = (
-            self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
-                "Default", response_schema
-            )
-        )
-        structured_prompt = self._feature_extractor.llm.generate_json_prompt(
-            schema_model, prompt
-        )
-
-        print(structured_prompt)
-        response = self._feature_extractor.llm.ask_question(structured_prompt)
-        self._feature_extractor.llm._unload_model()
-        self._feature_extractor.llm.reset_dialogue()
-        gc.collect()
-        torch.cuda.empty_cache()
-
         try:
+
+            prompt = """
+            You are given a social media post. Identify the primary theme or topic of the post in one word. Your response should focus on the most prominent subject or sentiment conveyed, capturing the main idea in broad terms.
+            
+            When selecting the topic, avoid specific details or minor points. Aim for general categories that summarize the post's main content, such as 'Travel,' 'Health,' 'Food,' 'Technology,' etc.
+            
+            Examples:
+            
+            Post: 'Excited to visit the beach this weekend and enjoy some sunshine!'
+            Response: 'Travel'
+            
+            Post: 'Just had the most amazing pasta dinner at my favorite restaurant!'
+            Response: 'Food'
+            
+            Post: 'Feeling grateful for my family and friends today.'
+            Response: 'Gratitude'
+            
+            Post: 'Just finished my workout, feeling strong and ready to tackle the day!'
+            Response: 'Fitness'
+            
+            Post: 'Can’t believe the prices at the grocery store lately, everything is so expensive!'
+            Response: 'Economy'
+            
+            Post: 'Watching the latest Marvel movie, the effects are mind-blowing!'
+            Response: 'Entertainment'
+            
+            Focus on selecting a single word that best captures the main theme of the post.
+            """
+
+            prompt = prompt + "\n Post: " + self.post
+
+            response_schema = json.dumps(
+                {
+                    "theme": "One-word response on the theme/ topic of the post",
+                    "reasoning": "A short summary of your reasoning",
+                }
+            )
+            schema_model = (
+                self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
+                    "Default", response_schema
+                )
+            )
+            structured_prompt = self._feature_extractor.llm.generate_json_prompt(
+                schema_model, prompt
+            )
+
+            print(structured_prompt)
+            response = self._feature_extractor.llm.ask_question(structured_prompt)
+            self._feature_extractor.llm._unload_model()
+            self._feature_extractor.llm.reset_dialogue()
+            gc.collect()
+            torch.cuda.empty_cache()
+
             extracted_theme = response["theme"]
             self._theme = extracted_theme
         except:
+            self._feature_extractor.llm._unload_model()
+            self._feature_extractor.llm.reset_dialogue()
+            gc.collect()
+            torch.cuda.empty_cache()
             return self.get_theme()
 
         return response["theme"]       
