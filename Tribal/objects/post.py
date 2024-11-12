@@ -207,64 +207,68 @@ class PostObject(ABC):
         return self._text_vector
 
     def eval_correctness(self):
-        prompt = """
-        You will analyze social media posts to assess their factual correctness. For each post, evaluate whether the information presented is:
-        - Correct: The information can be verified and matches reliable sources or established facts.
-        - False: The information is inaccurate, misleading, or contradicts verifiable sources or established facts.
-        - Unknown: There is not enough information available to determine accuracy, or the post itself cannot be fact-checked due to ambiguity or a lack of verifiable context.
-
-        When analyzing each post, consider the following:
-        - Check for Credible Sources: If the post contains information that can be cross-referenced, use your background knowledge and established reliable sources for verification.
-        - Assess Ambiguity: If the post includes vague language or subjective claims that lack sufficient detail, choose Unknown.
-        - Handle Unverifiable Claims: If the post contains statements that cannot reasonably be verified (e.g., "I feel like this is true" or speculative opinions), select Unknown.
-
-        Examples:
-        - Post: "The Eiffel Tower is located in Paris, France."
-            - Analysis: This is a verifiable fact; multiple reliable sources confirm that the Eiffel Tower is indeed in Paris, France.
-            - Response: Correct
-
-        - Post: "Vaccines cause autism in children."
-            - Analysis: This is a widely debunked claim with no credible evidence supporting it, and multiple studies refute the connection between vaccines and autism.
-            - Response: False
-
-        - Post: "I heard that meditation can cure all illnesses."
-            - Analysis: This claim is broad and lacks specific verifiable details. The effectiveness of meditation is context-dependent and not verifiable as a cure for all illnesses.
-            - Response: Unknown
-
-        Instructions for Responding:
-        - For each post, provide a response indicating Correct, False, or Unknown.
-        - Include a brief justification supporting the chosen response based on your analysis.
-        """
-
-        # Define the JSON schema as a Python dictionary
-        response_schema = {
-            "status": "'correct', 'false', or 'unknown'",
-             "justification": "A brief explanation supporting the selected status, explaining why the post is correct, false, or unknown based on factual information or ambiguity."
-            }
-
-        prompt = prompt + "\n Post: " + self.post
-
-        schema_model = (
-            self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
-                "Default", response_schema
-            )
-        )
-
-        structured_prompt = self._feature_extractor.llm.generate_json_prompt(
-            schema_model, prompt
-        )
-        
-        print(structured_prompt)
-        response = self._feature_extractor.llm.ask_question(structured_prompt)
-        self._feature_extractor.llm._unload_model()
-        self._feature_extractor.llm.reset_dialogue()
-        gc.collect()
-        torch.cuda.empty_cache()
-        
         try:
+            prompt = """
+            You will analyze social media posts to assess their factual correctness. For each post, evaluate whether the information presented is:
+            - Correct: The information can be verified and matches reliable sources or established facts.
+            - False: The information is inaccurate, misleading, or contradicts verifiable sources or established facts.
+            - Unknown: There is not enough information available to determine accuracy, or the post itself cannot be fact-checked due to ambiguity or a lack of verifiable context.
+    
+            When analyzing each post, consider the following:
+            - Check for Credible Sources: If the post contains information that can be cross-referenced, use your background knowledge and established reliable sources for verification.
+            - Assess Ambiguity: If the post includes vague language or subjective claims that lack sufficient detail, choose Unknown.
+            - Handle Unverifiable Claims: If the post contains statements that cannot reasonably be verified (e.g., "I feel like this is true" or speculative opinions), select Unknown.
+    
+            Examples:
+            - Post: "The Eiffel Tower is located in Paris, France."
+                - Analysis: This is a verifiable fact; multiple reliable sources confirm that the Eiffel Tower is indeed in Paris, France.
+                - Response: Correct
+    
+            - Post: "Vaccines cause autism in children."
+                - Analysis: This is a widely debunked claim with no credible evidence supporting it, and multiple studies refute the connection between vaccines and autism.
+                - Response: False
+    
+            - Post: "I heard that meditation can cure all illnesses."
+                - Analysis: This claim is broad and lacks specific verifiable details. The effectiveness of meditation is context-dependent and not verifiable as a cure for all illnesses.
+                - Response: Unknown
+    
+            Instructions for Responding:
+            - For each post, provide a response indicating Correct, False, or Unknown.
+            - Include a brief justification supporting the chosen response based on your analysis.
+            """
+    
+            # Define the JSON schema as a Python dictionary
+            response_schema = {
+                "status": "'correct', 'false', or 'unknown'",
+                 "justification": "A brief explanation supporting the selected status, explaining why the post is correct, false, or unknown based on factual information or ambiguity."
+                }
+    
+            prompt = prompt + "\n Post: " + self.post
+    
+            schema_model = (
+                self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
+                    "Default", response_schema
+                )
+            )
+    
+            structured_prompt = self._feature_extractor.llm.generate_json_prompt(
+                schema_model, prompt
+            )
+            
+            print(structured_prompt)
+            response = self._feature_extractor.llm.ask_question(structured_prompt)
+            self._feature_extractor.llm._unload_model()
+            self._feature_extractor.llm.reset_dialogue()
+            gc.collect()
+            torch.cuda.empty_cache()
+
             is_op = response["status"]
             self._correctness = is_op
         except:
+            gc.collect()
+            torch.cuda.empty_cache()
+            self._feature_extractor.llm._unload_model()
+            self._feature_extractor.llm.reset_dialogue()
             return self.eval_correctness()
             
         return response["status"]
@@ -278,66 +282,70 @@ class PostObject(ABC):
         return self.eval_correctness()
 
     def get_is_operational(self):
-        prompt = """
-        As an AI model, you are tasked with analyzing social media posts to detect and classify online behaviors associated with operational planning for extremist mobilization. Your primary goal is to identify whether the post contains signals that suggest a likelihood of transitioning from radicalized beliefs to actionable planning. Based on the framework from “Online Signals of Extremist Mobilization”, evaluate the post and address the following:
-        
-        1. **Language of Violent Action**: Does the post contain keywords or themes associated with preparing for violence? Identify terms indicating intent to harm, such as "weapons," "target," "attack," or "security" that may align with operational planning rather than ideology alone.
-           - *Example*: "Planning to gather supplies for the mission; anyone have resources for building what we need?"
-           - *Example*: "I've got the target location mapped out; just need a few more volunteers."
-        
-        2. **Knowledge Acquisition and Capability**: Are there signs that the user is acquiring skills or resources necessary for violent actions? Look for indicators of users seeking knowledge on tactics, weapon acquisition, operational security, or techniques for evading law enforcement—aligning with capabilities that support mobilization.
-           - *Example*: "Anyone have experience with encrypted communication methods? Need to secure our plans."
-           - *Example*: "Looking for a reliable source for tactical gear and training manuals."
-        
-        3. **Logistics and Coordination**: Does the content reference logistical planning, including specifics about timing, locations, targets, or collaborative efforts? This may include discussions about coordinating with others, arranging meetups, gathering supplies, or planning routes, which indicate preparation.
-           - *Example*: "We’ll meet at the south entrance at 8 PM—don’t bring phones or anything traceable."
-           - *Example*: "Got the route mapped out; sharing the link in a private group."
-        
-        4. **“Leakage” of Intentions**: Identify any unintended or indirect revelations of the user's plans or intentions. This may include expressions that hint at readiness for action, capability boasts, or discussing future steps in a way that goes beyond expressing ideology.
-           - *Example*: "Soon, they’ll see what we’re capable of—no more waiting around."
-           - *Example*: "We’ve been prepping for months, and everything is set for the day."
-        
-        5. **Tone and Intensity Indicators**: Assess the post for heightened emotional cues, such as excessive punctuation or expressions of urgency, anger, or excitement that may signal increased readiness or psychological escalation toward action.
-           - *Example*: "This is it!! No more talk—time for action!!!"
-           - *Example*: "We have no time left, everyone needs to be ready NOW."
-        
-        **Final Classification**: Based on the criteria above, classify the post as exhibiting “none,” “weak,” “moderate,” “strong,” or “extreme” indicators of mobilization for extremist operational planning. Support your assessment with examples from the post, referencing specific criteria from “Online Signals of Extremist Mobilization”.
-        
-        **Key Considerations**:
-        - **Contextual Analysis**: Evaluate the language and behaviors within the broader context of the user’s online history and affiliations.
-        - **Minimize Bias**: Avoid basing decisions solely on ideology. Focus on behaviors associated with mobilization processes, as defined in the study.
-        - **Ethical Awareness**: Recognize that false positives can have serious impacts; use this classification to support, not replace, investigative methods.
-        """
-        
-        
-        prompt = prompt + "\n Post: " + self.post
-        
-        response_schema = json.dumps(
-            {
-                "is_operational_planning": "One-word response: 'none', 'weak', 'moderate', 'strong', or 'extreme'.",
-                "reasoning": "Detailed explanation of the post's classification, with relevant examples and references to mobilization indicators",
-            }
-        )
-        schema_model = (
-            self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
-                "Default", response_schema
-            )
-        )
-        structured_prompt = self._feature_extractor.llm.generate_json_prompt(
-            schema_model, prompt
-        )
-        
-        print(structured_prompt)
-        response = self._feature_extractor.llm.ask_question(structured_prompt)
-        self._feature_extractor.llm._unload_model()
-        self._feature_extractor.llm.reset_dialogue()
-        gc.collect()
-        torch.cuda.empty_cache()
-        
         try:
+            prompt = """
+            As an AI model, you are tasked with analyzing social media posts to detect and classify online behaviors associated with operational planning for extremist mobilization. Your primary goal is to identify whether the post contains signals that suggest a likelihood of transitioning from radicalized beliefs to actionable planning. Based on the framework from “Online Signals of Extremist Mobilization”, evaluate the post and address the following:
+            
+            1. **Language of Violent Action**: Does the post contain keywords or themes associated with preparing for violence? Identify terms indicating intent to harm, such as "weapons," "target," "attack," or "security" that may align with operational planning rather than ideology alone.
+               - *Example*: "Planning to gather supplies for the mission; anyone have resources for building what we need?"
+               - *Example*: "I've got the target location mapped out; just need a few more volunteers."
+            
+            2. **Knowledge Acquisition and Capability**: Are there signs that the user is acquiring skills or resources necessary for violent actions? Look for indicators of users seeking knowledge on tactics, weapon acquisition, operational security, or techniques for evading law enforcement—aligning with capabilities that support mobilization.
+               - *Example*: "Anyone have experience with encrypted communication methods? Need to secure our plans."
+               - *Example*: "Looking for a reliable source for tactical gear and training manuals."
+            
+            3. **Logistics and Coordination**: Does the content reference logistical planning, including specifics about timing, locations, targets, or collaborative efforts? This may include discussions about coordinating with others, arranging meetups, gathering supplies, or planning routes, which indicate preparation.
+               - *Example*: "We’ll meet at the south entrance at 8 PM—don’t bring phones or anything traceable."
+               - *Example*: "Got the route mapped out; sharing the link in a private group."
+            
+            4. **“Leakage” of Intentions**: Identify any unintended or indirect revelations of the user's plans or intentions. This may include expressions that hint at readiness for action, capability boasts, or discussing future steps in a way that goes beyond expressing ideology.
+               - *Example*: "Soon, they’ll see what we’re capable of—no more waiting around."
+               - *Example*: "We’ve been prepping for months, and everything is set for the day."
+            
+            5. **Tone and Intensity Indicators**: Assess the post for heightened emotional cues, such as excessive punctuation or expressions of urgency, anger, or excitement that may signal increased readiness or psychological escalation toward action.
+               - *Example*: "This is it!! No more talk—time for action!!!"
+               - *Example*: "We have no time left, everyone needs to be ready NOW."
+            
+            **Final Classification**: Based on the criteria above, classify the post as exhibiting “none,” “weak,” “moderate,” “strong,” or “extreme” indicators of mobilization for extremist operational planning. Support your assessment with examples from the post, referencing specific criteria from “Online Signals of Extremist Mobilization”.
+            
+            **Key Considerations**:
+            - **Contextual Analysis**: Evaluate the language and behaviors within the broader context of the user’s online history and affiliations.
+            - **Minimize Bias**: Avoid basing decisions solely on ideology. Focus on behaviors associated with mobilization processes, as defined in the study.
+            - **Ethical Awareness**: Recognize that false positives can have serious impacts; use this classification to support, not replace, investigative methods.
+            """
+            
+            
+            prompt = prompt + "\n Post: " + self.post
+            
+            response_schema = json.dumps(
+                {
+                    "is_operational_planning": "One-word response: 'none', 'weak', 'moderate', 'strong', or 'extreme'.",
+                    "reasoning": "Detailed explanation of the post's classification, with relevant examples and references to mobilization indicators",
+                }
+            )
+            schema_model = (
+                self._feature_extractor.llm.generate_pydantic_model_from_json_schema(
+                    "Default", response_schema
+                )
+            )
+            structured_prompt = self._feature_extractor.llm.generate_json_prompt(
+                schema_model, prompt
+            )
+            
+            print(structured_prompt)
+            response = self._feature_extractor.llm.ask_question(structured_prompt)
+            self._feature_extractor.llm._unload_model()
+            self._feature_extractor.llm.reset_dialogue()
+            gc.collect()
+            torch.cuda.empty_cache()
+            
             is_op = response["is_operational_planning"]
             self._operational = is_op
         except:
+            gc.collect()
+            torch.cuda.empty_cache()
+            self._feature_extractor.llm._unload_model()
+            self._feature_extractor.llm.reset_dialogue()
             return self.get_is_operational()
             
         return response["is_operational_planning"]
