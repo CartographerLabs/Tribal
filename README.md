@@ -13,12 +13,11 @@ Tribal Forge is a utility for building and managing data pipelines using interco
 ![Tribal Forge Screenshot](screenshot_1.png)
 
 ## ✨ Features
-
-- 📄 **CSV and JSON Data Reading**: Nodes to read data from CSV and JSON files.
-- 🔍 **Feature Extraction**: Nodes to extract various features from data, including sentiment, toxicity, lexical diversity, and more.
-- 🧠 **Decision Making**: Nodes to make decisions based on extracted features.
-- 📤 **Data Output**: Nodes to output data to JSON files or send alerts.
-- 🛠️ **Node Management**: Web interface to add, remove, and manage nodes and their connections.
+Tribal Forge is configured into modular nodes, that can be written for varying tasks. The pre-configured nodes and features include:
+-  **CSV and JSON Data Reading**: Nodes to read data from CSV and JSON files.
+- **Feature Extraction**: Nodes to extract various features from data, including sentiment, toxicity, lexical diversity, and more.
+- **Decision Making**: Nodes to make decisions based on extracted features.
+- **Data Output**: Nodes to output data to JSON files or send alerts.
 
 ## 📦 Installation
 
