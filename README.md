@@ -24,10 +24,14 @@ Tribal Forge is a powerful tool designed to manage and process data through a se
     ```
 
 2. Install the required dependencies:
-    ```pip install -r requirements.txt```
+    ```
+   pip install -r requirements.txt
+    ```
 
-3. Run the Flask application:
-    ```python app.py```
+4. Run the Flask application:
+    ```
+   python app.py
+    ```
 
 ## 🚀 Usage
 
@@ -36,22 +40,28 @@ Tribal Forge is a powerful tool designed to manage and process data through a se
 Nodes can be added via the web interface or programmatically. Each node type has specific parameters required for initialization.
 
 Example of adding a CSV Reader Node:
-```csv_node = CsvReaderNode(broadcast_manager, "path/to/your/csvfile.csv")
+```
+csv_node = CsvReaderNode(broadcast_manager, "path/to/your/csvfile.csv")
 csv_node.set_message_type("post")
-broadcast_manager.add_node(csv_node)```
+broadcast_manager.add_node(csv_node)
+```
 
 ### Connecting Nodes
 
 Nodes can be connected to send and receive messages. Connections can be implicit (based on message types) or explicit (direct connections).
 
 Example of connecting nodes:
-```feature_extractor_node.add_broadcast_implicit_receiver("post")`
-json_out_node.add_explicit_receiver(feature_extractor_node.name)```
+```
+feature_extractor_node.add_broadcast_implicit_receiver("post")
+json_out_node.add_explicit_receiver(feature_extractor_node.name)
+```
 
 ### Starting Nodes
 
 Nodes can be started to begin processing data.
-```csv_node.start()```
+```
+csv_node.start()
+```
 
 ### 🌐 Web Interface
 
@@ -68,7 +78,8 @@ The web interface provides endpoints to manage nodes and their connections. Some
 ## 📝 Example
 
 Here is an example of setting up nodes and starting the CSV Reader Node:
-```from tribal.forge.nodes import *
+```
+from tribal.forge.nodes import *
 from tribal.forge.managers import BroadcastManager
 
 broadcast_manager = BroadcastManager()
