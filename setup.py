@@ -15,7 +15,7 @@ setup(
     description="A modular framework for processing and analyzing social media data",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/user1342/tribe",
+    url="https://github.com/user1342/tribal",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",
