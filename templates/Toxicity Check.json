@@ -1,0 +1,48 @@
+{
+  "nodes": {
+    "json_in": {
+      "type": "JsonReaderNode",
+      "args": {
+        "json_path": "C:\\Users\\JS\\Downloads\\mini-tribe\\content\\output.json"
+      },
+      "receivers": [],
+      "message_type": null
+    },
+    "feature_extraction": {
+      "type": "FeatureExtractorNode",
+      "args": {},
+      "receivers": [
+        {
+          "name": "json_in",
+          "type": "explicit"
+        }
+      ],
+      "message_type": null
+    },
+    "descision_point": {
+      "type": "DecisionNode",
+      "args": {
+        "expression": "float(message['toxicity']) > 0.8"
+      },
+      "receivers": [
+        {
+          "name": "feature_extraction",
+          "type": "explicit"
+        }
+      ],
+      "message_type": null
+    },
+    "alert": {
+      "type": "AlertOutNode",
+      "args": {},
+      "receivers": [
+        {
+          "name": "descision_point",
+          "type": "explicit"
+        }
+      ],
+      "message_type": null
+    }
+  },
+  "connections": []
+}

@@ -1,28 +1,37 @@
-import subprocess
+
 from setuptools import setup, find_packages
 
-# Read the requirements from the requirements.txt file
-with open("requirements.txt", "r") as f:
-    requirements = f.read().splitlines()
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
 
-# Separate the Git-based requirements
-git_requirements = [req for req in requirements if req.startswith("git+")]
-other_requirements = [req for req in requirements if not req.startswith("git+")]
-
-# Install Git dependencies manually
-if git_requirements:
-    for req in git_requirements:
-        print(f"Installing {req}")
-        subprocess.check_call(["pip", "install", req])
+with open("requirements.txt", "r", encoding="utf-8") as fh:
+    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
-    name="Tribal",
-    version="0.50",
+    name="tribal-forge",
+    version="0.1.0",
+    author="Your Name",
+    author_email="your.email@example.com",
+    description="A modular framework for processing and analyzing social media data",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/yourusername/tribal-forge",
     packages=find_packages(),
-    # Optional metadata
-    author="James Stevenson",
-    author_email="opensource@jamesstevenson.me",
-    description="ML for countering violent extremism",
-    url="https://github.com/CartographerLabs/Tribal",
-    install_requires=other_requirements,  # Dependencies without GitHub URLs
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+    ],
+    python_requires=">=3.8",
+    install_requires=requirements,
+    entry_points={
+        "console_scripts": [
+            "tribal-forge=tribal.forge.app:main",
+        ],
+    },
 )
