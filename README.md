@@ -23,7 +23,7 @@ Tribal Forge is configured into modular nodes, that can be written for varying t
 
 1. Clone the repository:
     ```
-    git clone https://github.com/your-repo/tribal-forge.git
+    git clone https://github.com/CartographerLabs/Tribal.git
     cd tribal-forge
     ```
 
