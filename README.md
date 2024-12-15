@@ -18,8 +18,10 @@ Tribal Forge is a powerful tool designed to manage and process data through a se
 ## 📦 Installation
 
 1. Clone the repository:
-    ```git clone https://github.com/your-repo/tribal-forge.git
-    cd tribal-forge```
+    ```
+    git clone https://github.com/your-repo/tribal-forge.git
+    cd tribal-forge
+    ```
 
 2. Install the required dependencies:
     ```pip install -r requirements.txt```
