@@ -10,7 +10,7 @@
 
 Tribal Forge is a utility for building and managing data pipelines using interconnected nodes. Each node performs specific tasks like reading data, extracting features, making decisions, and exporting results. Built with Python and Flask, it offers an intuitive web interface for seamless workflow management.
 
-![Tribal Forge Screenshot](screenshot_1.png)
+![Tribal Forge Screenshot](tf_demo.gif)
 
 ## ✨ Features
 Tribal Forge is configured into modular nodes, that can be written for varying tasks. The pre-configured nodes and features include:
