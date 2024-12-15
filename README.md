@@ -87,15 +87,3 @@ csv_node.start()
 ## 🤝 Contributing
 
 Contributions are welcome! Please fork the repository and submit a pull request.
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 📧 Contact
-
-For any questions or issues, please contact [your-email@example.com](mailto:your-email@example.com).
-
----
-
-Happy coding! 🎉
