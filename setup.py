@@ -1,11 +1,18 @@
-
 from setuptools import setup, find_packages
 
+# Read the long description from README
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
+# Read the requirements from requirements.txt
+# Make sure your requirements.txt references the Git-based package with a valid specifier, e.g.:
+#   easyLLM @ git+https://github.com/user1342/easyLLM.git#egg=easyLLM
 with open("requirements.txt", "r", encoding="utf-8") as fh:
-    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+    requirements = [
+        line.strip()
+        for line in fh
+        if line.strip() and not line.startswith("#")
+    ]
 
 setup(
     name="tribal-forge",
