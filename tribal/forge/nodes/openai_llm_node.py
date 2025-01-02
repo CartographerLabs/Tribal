@@ -31,7 +31,7 @@ class OpenAILLMNode(BaseProcessorNode):
             except RateLimitError as e:
                 if retries == max_retries - 1:
                     raise e
-                wait_time = random.randint(10, 15)
+                wait_time = random.randint(10, 60)
                 LogManager().log(f"Rate limit reached, retrying in {wait_time} seconds... (Attempt {retries + 1}/{max_retries})")
                 time.sleep(wait_time)
                 retries += 1
