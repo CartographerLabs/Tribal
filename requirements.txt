@@ -9,3 +9,36 @@ transformers>=4.5.0
 textblob>=0.17.1
 scikit-learn>=0.24.0
 vaderSentiment
+spacy
+numpy
+pandas
+typing
+collections
+nltk
+vaderSentiment
+detoxify
+nrclex
+en_core_web_sm
+rich
+tqdm
+torch
+networkx
+transformers
+sklearn
+sentence_transformers
+easyLLM
+TRUNAJOD
+pytextrank
+argparse
+rich
+setuptools
+huggingface_hub
+numpy
+accelerate
+pyyaml
+torchvision -index-url https://download.pytorch.org/whl/cu118                                                                            
+torchaudio -index-url https://download.pytorch.org/whl/cu118                                                                            
+bitsandbytes>=0.39.0
+accelerate>=0.16.0,<1
+transformers[torch]>=4.28.1
+torch>=1.13.1
