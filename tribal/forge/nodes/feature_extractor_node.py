@@ -1,11 +1,11 @@
 from tribal.forge.base_nodes import MESSAGE_FORMAT, BaseProcessorNode
 from tribal.lab.extractors import *
 from tribal.lab.posts.Post import Post
-
+import time
 import random
 
 class FeatureExtractorNode(BaseProcessorNode):
-    def __init__(self, broadcast_manager, llm=None):
+    def __init__(self, broadcast_manager, llm=None, sleep=10):
 
         super().__init__("Feature Extractor", broadcast_manager)
         self.extractors = [
@@ -41,6 +41,7 @@ class FeatureExtractorNode(BaseProcessorNode):
         random.shuffle(self.extractors)
         self.post_cache = []
         self.cache_limit = 10
+        self.sleep = sleep
 
     def _process_broadcast(self, act_message):
         message = act_message[MESSAGE_FORMAT["MESSAGE"]]
@@ -68,4 +69,5 @@ class FeatureExtractorNode(BaseProcessorNode):
 
                 message[extractor.property_name] = post.get_property(extractor.property_name)
             message = self._construct_message(self.name, message)
+            time.sleep(self.sleep)
             self.send_broadcast(message, self.name)
