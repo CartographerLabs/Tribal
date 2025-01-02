@@ -15,11 +15,8 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
     ]
 
 setup(
-    name="tribal-forge",
+    name="tribal",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="A modular framework for processing and analyzing social media data",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/user1342/tribal",
