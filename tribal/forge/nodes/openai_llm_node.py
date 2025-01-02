@@ -81,12 +81,13 @@ class OpenAILLMNode(BaseProcessorNode):
             merged_dict = {**input_dict, **extracted_data}
 
 
-            LogManager().log(f"LLM Response: {str(response)}", style="bold blue")
+            LogManager().log(f"LLM Response: {str(response)}")
 
             return merged_dict
 
         except Exception as e:
             AlertManager().send_alert(f"Error processing OpenAI Request: {e}", self.name)
+            return None
 
     def _process_broadcast(self, act_message):
         """
@@ -108,13 +109,16 @@ class OpenAILLMNode(BaseProcessorNode):
                 self.return_keys
             )
 
+            if response is None:
+                return
+
             # Construct and send the processed message
             message_to_send = self._construct_message(self.name, response)
             self.send_broadcast(message_to_send, self.name)
 
         except KeyError as e:
-            logging.error(f"Missing key in message: {e}")
+            LogManager().log(f"Missing key in message: {e}", style="bold yellow")
             raise RuntimeError(f"Error processing broadcast: Missing key in message: {e}")
         except Exception as e:
-            logging.error(f"Unexpected error processing broadcast: {e}")
+            LogManager().log(f"Unexpected error processing broadcast: {e}", style="bold yellow")
             raise RuntimeError(f"Error processing broadcast: {e}")
