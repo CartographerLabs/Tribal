@@ -47,11 +47,11 @@ class FeatureExtractorNode(BaseProcessorNode):
         message = act_message[MESSAGE_FORMAT["MESSAGE"]]
         post_content = message["post"]
         username = message["username"]
-        time = message["time"]
+        msg_time = message["time"]
         replying_to = message["replying_to"]
         post_id = message["post_id"]
 
-        post = Post(post_content, username, time, replying_to, post_id)
+        post = Post(post_content, username, msg_time, replying_to, post_id)
         self.post_cache.append(post)
 
         if len(self.post_cache) < self.cache_limit:
