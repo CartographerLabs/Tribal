@@ -81,7 +81,7 @@ class OpenAILLMNode(BaseProcessorNode):
             merged_dict = {**input_dict, **extracted_data}
 
 
-            LogManager().log(f"LLM Response: {str(response)}")
+            LogManager().log(f"LLM Response: {str(response)}", style="bold blue")
 
             return merged_dict
 
