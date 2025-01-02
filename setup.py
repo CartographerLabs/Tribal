@@ -13,7 +13,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="tribal",
-    version="0.1.2",
+    version="0.1.3",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/user1342/tribal",
