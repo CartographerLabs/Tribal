@@ -14,7 +14,7 @@ class OpenAILLMNode(BaseProcessorNode):
         self.received_dict_key_to_process = received_dict_key_to_process
         self.return_keys = return_keys if isinstance(return_keys, list) else return_keys.split(',')
 
-    def _call_openai_with_retry(self, client, prompt, text_to_process, function_definition, max_retries=10):
+    def _call_openai_with_retry(self, client, prompt, text_to_process, function_definition, max_retries=100):
         retries = 0
         while retries < max_retries:
             try:
