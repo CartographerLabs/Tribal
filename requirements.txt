@@ -17,7 +17,6 @@ transformers
 sentence_transformers
 TRUNAJOD
 pytextrank
-argparse
 rich
 huggingface_hub
 numpy
