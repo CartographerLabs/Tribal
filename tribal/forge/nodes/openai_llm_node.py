@@ -1,4 +1,5 @@
 import time
+import random
 from tribal.forge.base_nodes import MESSAGE_FORMAT, BaseProcessorNode
 from openai import OpenAI, RateLimitError
 import json
@@ -13,7 +14,7 @@ class OpenAILLMNode(BaseProcessorNode):
         self.received_dict_key_to_process = received_dict_key_to_process
         self.return_keys = return_keys if isinstance(return_keys, list) else return_keys.split(',')
 
-    def _call_openai_with_retry(self, client, prompt, text_to_process, function_definition, max_retries=10, wait_time=5):
+    def _call_openai_with_retry(self, client, prompt, text_to_process, function_definition, max_retries=10):
         retries = 0
         while retries < max_retries:
             try:
@@ -30,6 +31,7 @@ class OpenAILLMNode(BaseProcessorNode):
             except RateLimitError as e:
                 if retries == max_retries - 1:
                     raise e
+                wait_time = random.randint(10, 15)
                 LogManager().log(f"Rate limit reached, retrying in {wait_time} seconds... (Attempt {retries + 1}/{max_retries})")
                 time.sleep(wait_time)
                 retries += 1
