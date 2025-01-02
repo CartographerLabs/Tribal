@@ -14,7 +14,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 setup(
     python_requires='>=3.6',
     name="tribal",
-    version="0.1.6",
+    version="0.1.7"
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/user1342/tribal",
