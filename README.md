@@ -30,12 +30,20 @@ Tribal Forge is configured into modular nodes, that can be written for varying t
 2. Install the required dependencies:
     ```
    pip install -r requirements.txt
+   pip install git+https://github.com/user1342/easyLLM.git
     ```
 
 4. Run the Flask application:
     ```
    python app.py
     ```
+
+or
+
+```
+pip install git+https://github.com/CartographerLabs/Tribal.git
+pip install git+https://github.com/user1342/easyLLM.git
+```
 
 ## 🚀 Usage
 
