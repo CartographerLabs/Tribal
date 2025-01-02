@@ -18,7 +18,6 @@ nltk
 vaderSentiment
 detoxify
 nrclex
-en_core_web_sm
 rich
 tqdm
 torch
@@ -26,12 +25,10 @@ networkx
 transformers
 sklearn
 sentence_transformers
-easyLLM
 TRUNAJOD
 pytextrank
 argparse
 rich
-setuptools
 huggingface_hub
 numpy
 accelerate
