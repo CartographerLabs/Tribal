@@ -2,6 +2,7 @@ from tribal.forge.base_nodes import MESSAGE_FORMAT, BaseProcessorNode
 from openai import OpenAI
 import json
 from tribal.forge.managers.alert_manager import AlertManager
+from tribal.forge.managers.log_manager import LogManager
 
 class OpenAILLMNode(BaseProcessorNode):
     def __init__(self, broadcast_manager, api_key, prompt, received_dict_key_to_process, return_keys):
@@ -78,6 +79,9 @@ class OpenAILLMNode(BaseProcessorNode):
 
             # Merge the extracted data with the input dictionary
             merged_dict = {**input_dict, **extracted_data}
+
+
+            LogManager().log(f"LLM Response: {str(response)}")
 
             return merged_dict
 
