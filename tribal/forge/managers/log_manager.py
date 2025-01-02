@@ -53,6 +53,16 @@ class LogManager:
             with open(self.LOG_FILE, 'a') as f:
                 f.write(log_msg)
 
+    def log(self, message, style="bold white"):
+        if self.mode not in ["info", "debug"]:
+            return
+
+        with self.lock:
+            log_msg = f"{message}\n"
+            self.console.print(log_msg.strip(), style=style)
+            with open(self.LOG_FILE, 'a') as f:
+                f.write(log_msg)
+    
     def log_receive_broadcast(self, message, origin, priority="normal"):
         if self.mode not in ["info", "debug"]:
             return
