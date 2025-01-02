@@ -41,7 +41,7 @@ class FeatureExtractorNode(BaseProcessorNode):
         random.shuffle(self.extractors)
         self.post_cache = []
         self.cache_limit = 10
-        self.sleep = sleep
+        self.sleep_between_send = int(sleep)
 
     def _process_broadcast(self, act_message):
         message = act_message[MESSAGE_FORMAT["MESSAGE"]]
@@ -69,5 +69,5 @@ class FeatureExtractorNode(BaseProcessorNode):
 
                 message[extractor.property_name] = post.get_property(extractor.property_name)
             message = self._construct_message(self.name, message)
-            time.sleep(self.sleep)
+            time.sleep(self.sleep_between_send)
             self.send_broadcast(message, self.name)
