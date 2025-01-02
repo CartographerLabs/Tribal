@@ -3,10 +3,10 @@ import csv
 import time
 
 class CsvReaderNode(BaseSourceNode):
-    def __init__(self, broadcast_manager, csv_path):
+    def __init__(self, broadcast_manager, csv_path, sleep=0.1):
 
         self.csv_path = csv_path
-
+        self.sleep = float(sleep)
         super().__init__("CSV Reader", broadcast_manager)
 
     def _run(self):
@@ -16,6 +16,6 @@ class CsvReaderNode(BaseSourceNode):
 
             for row in reader:
 
-                time.sleep(0.1)
+                time.sleep(self.sleep)
                 message = self._construct_message(self.name, dict(row))
                 self.send_broadcast(message, self.name)
