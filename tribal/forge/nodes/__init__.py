@@ -4,6 +4,7 @@ from .alert_out_node import AlertOutNode
 from .feature_extractor_node import FeatureExtractorNode
 from .json_reader_node import JsonReaderNode
 from .decision_node import DecisionNode
+from .openai_llm_node import OpenAILLMNode
 
 __node_types__ = [
     'JsonOutNode',
@@ -11,5 +12,7 @@ __node_types__ = [
     'AlertOutNode',
     'FeatureExtractorNode',
     'JsonReaderNode',
-    'DecisionNode'
+    'DecisionNode',
+    'OpenAILLMNode',
+
 ]
