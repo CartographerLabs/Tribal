@@ -1,19 +1,57 @@
 from tribal.forge.managers.log_manager import log_manager
 import time
+import threading
+from collections import defaultdict
+from queue import Queue
 
-class BroadcastManager():
-
+class BroadcastManager:
     nodes = []
 
-    def __init__(self):
-        pass
+    def __init__(self, num_simultaneous_same_node_running=0):
+        self.num_simultaneous_same_node_running = num_simultaneous_same_node_running
+        self.node_type_locks = defaultdict(threading.Semaphore)
+        self.node_queues = defaultdict(Queue)
+        self.node_workers = {}
+
+        if num_simultaneous_same_node_running > 0:
+            for node_type in self.node_type_locks:
+                self.node_type_locks[node_type] = threading.Semaphore(num_simultaneous_same_node_running)
+
+    def _process_node_queue(self, node_type):
+        """Worker function for processing queued tasks for a specific node type."""
+        while True:
+            try:
+                task = self.node_queues[node_type].get()
+                if task is None:  # Sentinel to end the worker thread
+                    break
+                func, args = task
+                func(*args)
+            finally:
+                self.node_queues[node_type].task_done()
+
+    def _start_worker_if_needed(self, node_type):
+        """Ensure a worker thread is running for the given node type."""
+        if node_type not in self.node_workers:
+            worker_thread = threading.Thread(target=self._process_node_queue, args=(node_type,), daemon=True)
+            self.node_workers[node_type] = worker_thread
+            worker_thread.start()
 
     def send_broadcast(self, message, origin):
         log_manager.log_send_broadcast(message, origin)
 
         for node in self.nodes:
+            if node._check_received_broadcasts(message):
+                node_type = type(node).__name__
+                self._start_worker_if_needed(node_type)
+                self.node_queues[node_type].put((self._thread_safe_receive_broadcast, (node, message)))
+
+    def _thread_safe_receive_broadcast(self, node, message):
+        node_type = type(node).__name__
+        lock = self.node_type_locks[node_type]
+
+        with lock:
             node.receive_broadcast(message, node.name)
-    
+
     def add_node(self, node):
         self.nodes.append(node)
 
