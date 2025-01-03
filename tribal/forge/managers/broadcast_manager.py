@@ -8,7 +8,7 @@ from queue import Queue
 class BroadcastManager:
     nodes = []
 
-    def __init__(self, num_simultaneous_same_node_running=0):
+    def __init__(self, num_simultaneous_same_node_running=4):
         self.num_simultaneous_same_node_running = num_simultaneous_same_node_running
         self.node_type_locks = defaultdict(threading.Semaphore)
         self.node_queues = defaultdict(Queue)
