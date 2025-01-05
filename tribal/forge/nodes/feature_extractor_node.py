@@ -40,7 +40,7 @@ class FeatureExtractorNode(BaseProcessorNode):
 
         random.shuffle(self.extractors)
         self.post_cache = []
-        self.cache_limit = 10
+        self.cache_limit = 1
         self.sleep_between_send = float(sleep)
 
     def _process_broadcast(self, act_message):
