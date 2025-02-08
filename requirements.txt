@@ -12,6 +12,7 @@ vaderSentiment
 detoxify
 rich
 tqdm
+jsonformer
 networkx
 transformers
 sentence_transformers
