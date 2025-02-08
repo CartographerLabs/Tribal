@@ -14,5 +14,4 @@ __node_types__ = [
     'JsonReaderNode',
     'DecisionNode',
     'OpenAILLMNode',
-
 ]

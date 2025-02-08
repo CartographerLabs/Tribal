@@ -31,11 +31,9 @@ from sentence_transformers import SentenceTransformer
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from detoxify import Detoxify
 from nrclex import NRCLex
-from easyLLM.easyLLM import EasyLLM
 from TRUNAJOD import surface_proxies, ttr
 import spacy
 import pytextrank
-from easyLLM.easyLLM import EasyLLM
 from tribal.lab.posts.Post import Post
 
 # Ensure required nltk packages are downloaded
@@ -52,7 +50,7 @@ class BaseFeatureExtractor:
     It also holds a property_name attribute that can be overridden by subclasses.
     """
 
-    def __init__(self, property_name: str, llm = None) -> None:
+    def __init__(self, property_name: str, model = None, tokenizer = None) -> None:
         """
         Initialize the BaseFeatureExtractor with a given property name.
 
@@ -63,8 +61,16 @@ class BaseFeatureExtractor:
         """
         self.property_name: str = property_name
 
-        if llm:
-            self.llm = llm
+        if model:
+            self.model = model
+
+        if tokenizer:
+            self.tokenizer = tokenizer
+
+        if model and not tokenizer:
+            raise ValueError("If a model is provided, a tokenizer must also be provided.")
+        if tokenizer and not model:
+            raise ValueError("If a tokenizer is provided, a model must also be provided.")
 
     def extract_features(self, posts: List[Post]) -> None:
         """

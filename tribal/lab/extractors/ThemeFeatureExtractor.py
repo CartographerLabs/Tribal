@@ -32,23 +32,21 @@ from sentence_transformers import SentenceTransformer
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from detoxify import Detoxify
 from nrclex import NRCLex
-from easyLLM.easyLLM import EasyLLM
 from TRUNAJOD import surface_proxies, ttr
 import spacy
-import pytextrank
-from easyLLM.easyLLM import EasyLLM
 from tribal.lab.posts.Post import Post
+from jsonformer import Jsonformer
 
 class ThemeFeatureExtractor(BaseFeatureExtractor):
-    def __init__(self, llm=None):
-        super().__init__(property_name="topic", llm=llm)
+    def __init__(self, model=None, tokenizer=None):
+        super().__init__(property_name="topic", model=model, tokenizer=tokenizer)
 
     def get_theme_for_all_users(self, posts: List[Post], users: Set[str]) -> Dict[str, Optional[str]]:
         """
         Identify a single-word theme for each user's posts.
         If USE_LLM is False, return None for all.
         """
-        if not self.llm:
+        if not self.model or not self.tokenizer:
             return {user: None for user in users}
 
         prompt = f"""You are an expert in summarizing user posts into a single broad theme.
@@ -59,45 +57,47 @@ Examples:
 
 Return a JSON object:
 - Keys: usernames
-- Values:
-  {{
-    "topic": "a single word topic",
-    "rational": "Explanation referencing the user's posts"
-  }}
-
-Posts:
+- Values: An object containing the topic and rationale
 """
         user_posts_map = {u: [] for u in users}
         for post in posts:
             user_posts_map[post.username].append(post.text)
 
-        schema_parts = {}
+        schema = {
+            "type": "object",
+            "properties": {},
+            "required": list(users),
+            "additionalProperties": False
+        }
+
+        for username in users:
+            schema["properties"][username] = {
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "description": "Single word theme describing the user's posts"
+                    },
+                    "rational": {
+                        "type": "string",
+                        "description": "Explanation of why this theme was chosen"
+                    }
+                },
+                "required": ["topic", "rational"],
+                "additionalProperties": False
+            }
+
         for username, user_posts in user_posts_map.items():
             for text in user_posts:
                 prompt += f"\n{username}: {text}"
-            schema_parts[username] = {
-                "topic": "string",
-                "rational": "string"
-            }
 
-        schema = json.dumps(schema_parts)
-        schema_model = self.llm.generate_pydantic_model_from_json_schema("ThemeSchema", schema)
-        structured_prompt = self.llm.generate_json_prompt(schema_model, prompt)
-
-        response = self.llm.ask_question(structured_prompt)
-        self.llm._unload_model()
-        self.llm.reset_dialogue()
+        jsonformer = Jsonformer(self.model, self.tokenizer, schema, prompt, max_number_tokens=300)
+        structured_response = jsonformer()
         gc.collect()
         torch.cuda.empty_cache()
 
-        # response is {username: {"topic": str, "rational": str}}
-        result = {}
-        for user in users:
-            if user in response and "topic" in response[user]:
-                result[user] = response[user]["topic"]
-            else:
-                result[user] = None
-        return result
+        return structured_response
+
 
     def extract_features(self, posts: List[Post]) -> None:
         """

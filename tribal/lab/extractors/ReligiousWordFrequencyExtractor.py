@@ -32,16 +32,14 @@ from sentence_transformers import SentenceTransformer
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from detoxify import Detoxify
 from nrclex import NRCLex
-from easyLLM.easyLLM import EasyLLM
 from TRUNAJOD import surface_proxies, ttr
 import spacy
 import pytextrank
-from easyLLM.easyLLM import EasyLLM
 from tribal.lab.posts.Post import Post
 
 class ReligiousWordFrequencyExtractor(BaseFeatureExtractor):
-    def __init__(self, llm=None) -> None:
-        super().__init__(property_name="religious_word_frequency", llm=llm)
+    def __init__(self) -> None:
+        super().__init__(property_name="religious_word_frequency")
         self.religious_words = {
             "god", "allah", "jesus", "bible", "quran", "faith", "pray", "church", "mosque",
             "temple", "bless", "religion", "spiritual", "prophet", "saint", "worship",

@@ -1,3 +1,4 @@
+import threading
 import time
 from tribal.forge.managers.log_manager import log_manager
 
@@ -53,7 +54,7 @@ class BaseNode:
 
     def send_broadcast(self, message, origin):
         self.last_send_time = time.time()
-        self.broadcast_manager.send_broadcast(message,origin)
+        threading.Thread(target=self.broadcast_manager.send_broadcast, args=(message,origin,)).start()
         
     def _check_received_broadcasts(self, message):
 

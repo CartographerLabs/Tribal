@@ -22,26 +22,19 @@ from tqdm import tqdm
 import torch
 import gc
 import numpy as np
-import networkx as nx
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from nltk import pos_tag, word_tokenize
-from nltk.util import ngrams
-from nltk.corpus import stopwords
-from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sentence_transformers import SentenceTransformer
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from detoxify import Detoxify
 from nrclex import NRCLex
-from easyLLM.easyLLM import EasyLLM
 from TRUNAJOD import surface_proxies, ttr
 import spacy
 import pytextrank
-from easyLLM.easyLLM import EasyLLM
+from jsonformer import Jsonformer
 
 class ExtremismFeatureExtractor(BaseFeatureExtractor):
-    def __init__(self, llm=None):
-        super().__init__(property_name="extremism", llm=llm)
+    def __init__(self, model=None, tokenizer=None):
+        super().__init__(property_name="extremism", model=model, tokenizer=tokenizer)
 
     def get_extremism_for_all_users(self, posts: List[Post], users: Set[str]) -> Dict[str, Optional[str]]:
         """
@@ -50,14 +43,8 @@ class ExtremismFeatureExtractor(BaseFeatureExtractor):
         Possible categories: "none", "low", "moderate", "high", "extreme"
         
         If USE_LLM is False, return None for all.
-        
-        The returned JSON object format for each user is now:
-          {
-            "extremism_level": "none|low|moderate|high|extreme",
-            "rational": "Explanation of why this level was assigned"
-          }
         """
-        if not self.llm:
+        if not self.model or not self.tokenizer:
             return {user: None for user in users}
 
         prompt = f"""You are an expert in social media analysis for extremist content.
@@ -80,33 +67,41 @@ Posts:
         for post in posts:
             user_posts_map[post.username].append(post.text)
 
-        schema_parts = {}
+        schema = {
+            "type": "object",
+            "properties": {},
+            "required": list(users),
+            "additionalProperties": False
+        }
+
+        for username in users:
+            schema["properties"][username] = {
+                "type": "object",
+                "properties": {
+                    "extremism_level": {
+                        "type": "string",
+                        "enum": ["none", "low", "moderate", "high", "extreme"],
+                        "description": "The assessed level of extremist content in the user's posts"
+                    },
+                    "rational": {
+                        "type": "string",
+                        "description": "Detailed explanation of why this extremism level was assigned"
+                    }
+                },
+                "required": ["extremism_level", "rational"],
+                "additionalProperties": False
+            }
+
         for username, user_posts in user_posts_map.items():
             for text in user_posts:
                 prompt += f"\n{username}: {text}"
-            schema_parts[username] = {
-                "extremism_level": "string",
-                "rational": "string"
-            }
 
-        schema = json.dumps(schema_parts)
-        schema_model = self.llm.generate_pydantic_model_from_json_schema("ExtremismSchema", schema)
-        structured_prompt = self.llm.generate_json_prompt(schema_model, prompt)
-
-        response = self.llm.ask_question(structured_prompt)
-        self.llm._unload_model()
-        self.llm.reset_dialogue()
+        jsonformer = Jsonformer(self.model, self.tokenizer, schema, prompt, max_number_tokens=300)
+        structured_response = jsonformer()
         gc.collect()
         torch.cuda.empty_cache()
 
-        # response should be a dict {username: {"extremism_level": str, "rational": str}}
-        result = {}
-        for user in users:
-            if user in response and "extremism_level" in response[user]:
-                result[user] = response[user]["extremism_level"]
-            else:
-                result[user] = None
-        return result
+        return structured_response
 
     def extract_features(self, posts: List[Post]) -> None:
         """

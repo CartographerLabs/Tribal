@@ -21,34 +21,27 @@ from tqdm import tqdm
 import torch
 import gc
 import numpy as np
-import networkx as nx
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from nltk import pos_tag, word_tokenize
-from nltk.util import ngrams
-from nltk.corpus import stopwords
-from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sentence_transformers import SentenceTransformer
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from detoxify import Detoxify
 from nrclex import NRCLex
-from easyLLM.easyLLM import EasyLLM
 from TRUNAJOD import surface_proxies, ttr
 import spacy
 import pytextrank
-from easyLLM.easyLLM import EasyLLM
 from tribal.lab.posts.Post import Post
+from jsonformer import Jsonformer
 
 class RoleFeatureExtractor(BaseFeatureExtractor):
-    def __init__(self, llm=None):
-        super().__init__(property_name="role", llm=llm)
+    def __init__(self, model=None, tokenizer=None):
+        super().__init__(property_name="role", model=model, tokenizer=tokenizer)
 
     def get_roles_for_all_users(self, posts: List[Post], users: Set[str]) -> Dict[str, str]:
         """
         Given a list of Post objects and a set of unique users, determine the roles for 
         all users by making a single LLM call that returns the role for each user.
         """
-        if not self.llm:
+        if not self.model or not self.tokenizer:
             return {user: None for user in users}
 
         prompt = """You are an expert in social media analysis of user roles. 
@@ -66,23 +59,49 @@ Possible roles (in order of priority if a user fits multiple categories):
 Posts:
 """
 
+        schema = {
+            "type": "object",
+            "properties": {},
+            "required": list(users),
+            "additionalProperties": False
+        }
+
+        for username in users:
+            schema["properties"][username] = {
+                "type": "object",
+                "properties": {
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "People Leader",
+                            "Leader Influencer",
+                            "Engager Negator",
+                            "Engager Supporter",
+                            "Engager Neutral",
+                            "Bystander",
+                            "NATTAC"
+                        ],
+                        "description": "The user's primary role in the community"
+                    },
+                    "explanation": {
+                        "type": "string",
+                        "description": "Detailed explanation of why this role was assigned"
+                    }
+                },
+                "required": ["role", "explanation"],
+                "additionalProperties": False
+            }
+
         # Add all posts to the prompt
-        schema_parts = {}
         for post in posts:
             prompt += f"\n{post.username}: {post.text}"
-            schema_parts = {**schema_parts, post.username: {"role": "users_role", "explanation": "rational"}}
-        # Create the schema
-        schema = json.dumps(schema_parts)
-        schema_model = self.llm.generate_pydantic_model_from_json_schema("RolesSchema", schema)
-        structured_prompt = self.llm.generate_json_prompt(schema_model, prompt)
 
-        response = self.llm.ask_question(structured_prompt)
-        self.llm._unload_model()
-        self.llm.reset_dialogue()
+        jsonformer = Jsonformer(self.model, self.tokenizer, schema, prompt, max_number_tokens=300)
+        structured_response = jsonformer()
         gc.collect()
         torch.cuda.empty_cache()
 
-        return response
+        return structured_response
 
     def extract_features(self, posts: List[Post]) -> None:
         """
@@ -98,7 +117,5 @@ Posts:
         # Update each post with the user's role
         for post in posts:
             role = user_roles.get(post.username, None)
-            if role is not None:
-                role = role["role"]
             post.update_property(self.property_name, role)
 

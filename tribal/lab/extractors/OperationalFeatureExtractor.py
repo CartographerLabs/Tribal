@@ -23,25 +23,21 @@ import gc
 import numpy as np
 import networkx as nx
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from nltk import pos_tag, word_tokenize
-from nltk.util import ngrams
-from nltk.corpus import stopwords
-from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sentence_transformers import SentenceTransformer
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from detoxify import Detoxify
 from nrclex import NRCLex
-from easyLLM.easyLLM import EasyLLM
 from TRUNAJOD import surface_proxies, ttr
 import spacy
 import pytextrank
-from easyLLM.easyLLM import EasyLLM
+from jsonformer import Jsonformer
+
 from tribal.lab.posts.Post import Post
 
 class OperationalFeatureExtractor(BaseFeatureExtractor):
-    def __init__(self, llm=None):
-        super().__init__(property_name="operational", llm=llm)
+    def __init__(self, model=None, tokenizer=None):
+        super().__init__(property_name="operational", model=model, tokenizer=tokenizer)
 
     def get_operational_for_all_users(self, posts: List[Post], users: Set[str]) -> Dict[str, Optional[str]]:
         """
@@ -49,7 +45,7 @@ class OperationalFeatureExtractor(BaseFeatureExtractor):
         Return values: "none", "weak", "moderate", "strong", or "extreme".
         If USE_LLM is False, return None for all.
         """
-        if not self.llm:
+        if not self.model or not self.tokenizer:
             return {user: None for user in users}
 
         prompt = f"""You are an expert in detecting operational planning in extremist contexts.
@@ -71,33 +67,37 @@ Posts:
         for post in posts:
             user_posts_map[post.username].append(post.text)
 
-        schema_parts = {}
-        for username, user_posts in user_posts_map.items():
-            for text in user_posts:
-                prompt += f"\n{username}: {text}"
-            schema_parts[username] = {
-                "indicator": "string",
-                "rational": "string"
+        schema = {
+            "type": "object",
+            "properties": {},
+            "required": list(users),
+            "additionalProperties": False
+        }
+
+        for username in users:
+            schema["properties"][username] = {
+                "type": "object",
+                "properties": {
+                    "indicator": {
+                        "type": "string",
+                        "enum": ["None", "Weak", "Moderate", "Strong", "Extreme"],
+                        "description": "The level of operational planning detected in the user's posts"
+                    },
+                    "rational": {
+                        "type": "string",
+                        "description": "Detailed explanation with examples of why this indicator was assigned"
+                    }
+                },
+                "required": ["indicator", "rational"],
+                "additionalProperties": False
             }
 
-        schema = json.dumps(schema_parts)
-        schema_model = self.llm.generate_pydantic_model_from_json_schema("OperationalSchema", schema)
-        structured_prompt = self.llm.generate_json_prompt(schema_model, prompt)
-
-        response = self.llm.ask_question(structured_prompt)
-        self.llm._unload_model()
-        self.llm.reset_dialogue()
+        jsonformer = Jsonformer(self.model, self.tokenizer, schema, prompt, max_number_tokens=300)
+        structured_response = jsonformer()
         gc.collect()
         torch.cuda.empty_cache()
 
-        # response is {username: {"indicator": str, "rational": str}}
-        result = {}
-        for user in users:
-            if user in response and "indicator" in response[user]:
-                result[user] = response[user]["indicator"]
-            else:
-                result[user] = None
-        return result
+        return structured_response
 
     def extract_features(self, posts: List[Post]) -> None:
         """

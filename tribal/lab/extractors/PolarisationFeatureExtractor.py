@@ -21,34 +21,23 @@ from tqdm import tqdm
 import torch
 import gc
 import numpy as np
-import networkx as nx
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from nltk import pos_tag, word_tokenize
-from nltk.util import ngrams
-from nltk.corpus import stopwords
-from collections import Counter
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sentence_transformers import SentenceTransformer
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from detoxify import Detoxify
 from nrclex import NRCLex
-from easyLLM.easyLLM import EasyLLM
 from TRUNAJOD import surface_proxies, ttr
 import spacy
 import pytextrank
-from easyLLM.easyLLM import EasyLLM
 from tribal.lab.posts.Post import Post
+from jsonformer import Jsonformer
 
 class PolarisationFeatureExtractor(BaseFeatureExtractor):
-    def __init__(self, llm=None):
-        super().__init__(property_name="polarisation", llm=llm)
+    def __init__(self, model=None, tokenizer=None):
+        super().__init__(property_name="polarisation", model=model, tokenizer=tokenizer)
 
     def get_polarisation_for_all_posts(self, posts: List[Post]) -> Dict[int, Optional[str]]:
         """
         Given posts, determine the polarisation degree of each post.
         Possible categories: "none", "low", "moderate", "high", "extreme"
         """
-        if not self.llm:
+        if not self.model or not self.tokenizer:
             return {i: None for i, _ in enumerate(posts)}
 
         prompt = """You are an expert in analyzing polarization in conversation posts.
@@ -66,25 +55,12 @@ Posts:
                 "rational": "string"
             }
 
-        schema = json.dumps(schema_parts)
-        schema_model = self.llm.generate_pydantic_model_from_json_schema("PolarisationSchema", schema)
-        structured_prompt = self.llm.generate_json_prompt(schema_model, prompt)
-
-        response = self.llm.ask_question(structured_prompt)
-        self.llm._unload_model()
-        self.llm.reset_dialogue()
+        jsonformer = Jsonformer(self.model, self.tokenizer, schema_parts, prompt)
+        structured_response = jsonformer()
         gc.collect()
         torch.cuda.empty_cache()
 
-        results = {}
-        for i, _ in enumerate(posts):
-            key = f"post_{i}"
-            if key in response and "polarisation_level" in response[key]:
-                results[i] = response[key]["polarisation_level"]
-            else:
-                results[i] = None
-
-        return results
+        return structured_response
 
     def extract_features(self, posts: List[Post]) -> None:
         """

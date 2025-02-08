@@ -21,27 +21,20 @@ from tqdm import tqdm
 import torch
 import gc
 import numpy as np
-import networkx as nx
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from nltk import pos_tag, word_tokenize
-from nltk.util import ngrams
-from nltk.corpus import stopwords
-from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sentence_transformers import SentenceTransformer
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from detoxify import Detoxify
 from nrclex import NRCLex
-from easyLLM.easyLLM import EasyLLM
 from TRUNAJOD import surface_proxies, ttr
 import spacy
 import pytextrank
-from easyLLM.easyLLM import EasyLLM
 from tribal.lab.posts.Post import Post
+from jsonformer import Jsonformer
 
 class RecruitmentFeatureExtractor(BaseFeatureExtractor):
-    def __init__(self, llm=None):
-        super().__init__(property_name="recruitment", llm=llm)
+    def __init__(self, model=None, tokenizer=None):
+        super().__init__(property_name="recruitment", model=model, tokenizer=tokenizer)
 
     def get_recruitment_for_all_posts(self, posts: List[Post]) -> Dict[int, Optional[str]]:
         """
@@ -50,7 +43,7 @@ class RecruitmentFeatureExtractor(BaseFeatureExtractor):
         Each value is one of: "none", "weak", "moderate", "strong", "extreme".
         If USE_LLM is False, return None for all posts.
         """
-        if not self.llm:
+        if not self.model or not self.tokenizer:
             return {i: None for i, _ in enumerate(posts)}
 
         prompt = """You are an expert in analyzing recruitment signals in social media posts.
@@ -60,40 +53,45 @@ Possible output categories: "none", "weak", "moderate", "strong", "extreme".
 
 Posts:
 """
+        schema = {
+            "type": "object",
+            "properties": {},
+            "required": [f"post_{i}" for i in range(len(posts))],
+            "additionalProperties": False
+        }
 
-        schema_parts = {}
         for i, post in enumerate(posts):
             prompt += f"\npost_{i}: {post.text}"
-            schema_parts[f"post_{i}"] = {
-                "recruitment_level": "string",
-                "rational": "string"
+            schema["properties"][f"post_{i}"] = {
+                "type": "object",
+                "properties": {
+                    "recruitment_level": {
+                        "type": "string",
+                        "enum": ["none", "weak", "moderate", "strong", "extreme"],
+                        "description": "The level of recruitment effort detected in the post"
+                    },
+                    "rational": {
+                        "type": "string",
+                        "description": "Explanation of why this recruitment level was assigned"
+                    }
+                },
+                "required": ["recruitment_level", "rational"],
+                "additionalProperties": False
             }
 
-        schema = json.dumps(schema_parts)
-        schema_model = self.llm.generate_pydantic_model_from_json_schema("RecruitmentSchema", schema)
-        structured_prompt = self.llm.generate_json_prompt(schema_model, prompt)
-
-        response = self.llm.ask_question(structured_prompt)
-        self.llm._unload_model()
-        self.llm.reset_dialogue()
+        jsonformer = Jsonformer(self.model, self.tokenizer, schema, prompt, max_number_tokens=300)
+        structured_response = jsonformer()
         gc.collect()
         torch.cuda.empty_cache()
 
-        # Parse response
-        results = {}
-        for i, _ in enumerate(posts):
-            key = f"post_{i}"
-            if key in response and "recruitment_level" in response[key]:
-                results[i] = response[key]["recruitment_level"]
-            else:
-                results[i] = None
-
-        return results
+        return structured_response
 
     def extract_features(self, posts: List[Post]) -> None:
         """
         Extract recruitment level for each post and update the post.
         """
         post_recruitment = self.get_recruitment_for_all_posts(posts)
-        for i, post in enumerate(posts):
-            post.update_property(self.property_name, post_recruitment[i])
+
+        for post in posts:
+            recruitment_value = post_recruitment.get(post.username, None)
+            post.update_property(self.property_name, recruitment_value)

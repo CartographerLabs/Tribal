@@ -7,4 +7,4 @@ class AlertOutNode(BaseEndNode):
         super().__init__("Alert Reporting", broadcast_manager)
 
     def _process_broadcast(self, message):
-        alert_manager.send_alert(f"Received message: {message[MESSAGE_FORMAT['MESSAGE']]}", self.name)
+        alert_manager.send_alert(f"Received message: {message[MESSAGE_FORMAT["MESSAGE"]]}", self.name)
